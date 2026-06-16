@@ -1,6 +1,6 @@
 # Askalot — Claude Code Plugin
 
-Connect Claude to the **[Askalot](https://askalot.io)** survey research platform. Design questionnaires with mathematically verified logic, build and run campaigns, manage respondents, conduct surveys, and weight and analyse the results — all through conversation.
+Connect Claude to the **[Askalot](https://askalot.io)** Research Operating System. Design questionnaires with mathematically verified logic, build and run campaigns, manage respondents, conduct surveys, and weight and analyse the results — all through conversation.
 
 This repository is the **public, read-only mirror** of the plugin that ships inside Askalot. It is published automatically on each release; the canonical source lives in Askalot's private monorepo. For issues or feedback, contact [info@askalot.io](mailto:info@askalot.io) — pull requests against this mirror are not merged.
 

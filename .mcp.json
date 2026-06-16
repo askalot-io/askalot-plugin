@@ -2,7 +2,7 @@
   "mcpServers": {
     "askalot": {
       "type": "http",
-      "url": "${ASKALOT_MCP_URL}"
+      "url": "${ASKALOT_MCP_URL:-https://portor.dev.askalot.io/mcp}"
     }
   }
 }
