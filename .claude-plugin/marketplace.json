@@ -1,0 +1,26 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "askalot",
+  "owner": {
+    "name": "Askalot",
+    "email": "info@askalot.io"
+  },
+  "metadata": {
+    "description": "Askalot survey research platform — Claude Code plugin. Manage projects, campaigns, questionnaires, respondents, surveys, and statistical analysis.",
+    "version": "2.20.0"
+  },
+  "plugins": [
+    {
+      "name": "askalot",
+      "description": "Connect Claude Code to the Askalot survey research platform. Manage projects, campaigns, questionnaires, respondents, surveys, and statistical analysis.",
+      "source": ".",
+      "category": "research",
+      "author": {
+        "name": "Askalot",
+        "url": "https://askalot.io"
+      },
+      "homepage": "https://askalot.io",
+      "keywords": ["survey", "research", "questionnaire", "campaign", "data-analysis"]
+    }
+  ]
+}
