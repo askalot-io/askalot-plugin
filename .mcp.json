@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "askalot": {
+      "type": "http",
+      "url": "${ASKALOT_MCP_URL}"
+    }
+  }
+}

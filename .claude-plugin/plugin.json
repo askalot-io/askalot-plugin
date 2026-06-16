@@ -1,0 +1,11 @@
+{
+  "name": "askalot",
+  "description": "Connect Claude Code to the Askalot survey research platform. Manage projects, campaigns, questionnaires, respondents, surveys, and statistical analysis.",
+  "version": "2.20.0",
+  "author": {
+    "name": "Askalot",
+    "url": "https://askalot.io"
+  },
+  "homepage": "https://askalot.io",
+  "keywords": ["survey", "research", "questionnaire", "campaign", "data-analysis"]
+}
