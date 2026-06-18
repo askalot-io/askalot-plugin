@@ -26,7 +26,7 @@ QML is a YAML-based markup language for creating formally verified survey questi
 ### 1. Root Structure
 Every QML file must begin with:
 ```yaml
-qmlVersion: "1.1"
+qmlVersion: "2.0"
 questionnaire:
   title: "Your Questionnaire Title"
   blocks:
@@ -52,66 +52,29 @@ blocks:
 
 ### 2b. Block Kinds
 
-Every block declares a mandatory `kind`. Three kinds are supported:
+Every block has a `kind`. Two kinds exist; `kind` is optional and defaults to `Group`:
 
 | Kind | Description |
 |------|-------------|
-| `Sequence` | Default. Visit inner items once in declared (topological) order. |
+| `Group` | Default (omit `kind` for this). Asks each in-scope item once in canonical order. Optional `count: N` (positive integer literal) caps the block to the first N eligible items — a deterministic first-N cap, not random selection. |
 | `Roster` | Repeat inner items per set bit in an `iterateOver` integer bitmask. Required: `iterateOver` (Python expression → non-negative int bitmask) and `labels` (map of power-of-2 keys to display strings). |
-| `Sample` | Ask up to N inner items from the eligible pool. Required: `count` (positive integer literal — loader rejects missing/non-positive values loudly, no silent default). Optional: `is_random` (bool, default false). |
+
+**`count` is a deterministic first-N cap.** The block walks its items in canonical order; an item whose precondition is true consumes a slot, an item whose precondition is false is a free pass, and the draw stops once `count` slots are filled or the pool is exhausted. There is no randomness — the same answers always yield the same asked set. Inner items of a `count`-capped Group **must be independent** (no inner item may depend on another inner item of the same Group); a Group without `count` may contain inner dependencies. `count` applies only to `Group` — a Roster must not declare it.
 
 **Static validation (Z3) is kind-aware:**
 - Roster unrolls per label-key into bit-guarded copies.
-- Sample treats inner items as conditionally-present with up-to-N draw; when `is_random=true`, enumerates orderings with a cap of 7 independent dependency components.
+- A `count`-capped Group marks each inner item conditionally-present (any item beyond the cap is reachable, never dead code). A Group without `count` emits its items unconditionally.
 
-#### Roster example
-
-```yaml
-qmlVersion: "1.1"
-questionnaire:
-  title: "Meal Tracker"
-  blocks:
-    - id: meal_selection
-      kind: Sequence
-      items:
-        - id: q_meals_eaten
-          kind: Question
-          title: "Which meals did you eat today?"
-          input:
-            control: Checkbox
-            labels:
-              1: "Breakfast"
-              2: "Lunch"
-              4: "Dinner"
-
-    - id: per_meal
-      kind: Roster
-      iterateOver: "q_meals_eaten.outcome"
-      labels:
-        1: "Breakfast"
-        2: "Lunch"
-        4: "Dinner"
-      items:
-        - id: q_satisfaction
-          kind: Question
-          title: "How satisfied were you?"
-          input:
-            control: Slider
-            min: 1
-            max: 5
-```
-
-#### Sample example
+#### Group with `count` example
 
 ```yaml
-qmlVersion: "1.1"
+qmlVersion: "2.0"
 questionnaire:
   title: "Knowledge Check"
   blocks:
     - id: question_pool
-      kind: Sample
+      kind: Group
       count: 3
-      is_random: true
       items:
         - id: q_topic_a
           kind: Question
@@ -147,9 +110,44 @@ questionnaire:
               2: "Incorrect"
 ```
 
-With `count: 3` and `is_random: true`, 3 of the 4 items are asked per execution in a randomised-but-frozen order. Items skipped by preconditions don't consume a slot. Documents using Sample blocks require `qmlVersion: "1.1"`.
+With `count: 3`, the first 3 of the 4 independent items are asked in canonical order; the 4th is absent. An item whose precondition is false is skipped without consuming a slot. The four items are independent of one another, as a capped Group requires.
 
-**7-component cap**: `is_random: true` blocks with more than 7 independent dependency components are rejected at validation time. To recover: split the block into sub-blocks with fewer independent components, or set `is_random: false`.
+#### Roster example
+
+```yaml
+qmlVersion: "2.0"
+questionnaire:
+  title: "Meal Tracker"
+  blocks:
+    - id: meal_selection
+      kind: Group
+      items:
+        - id: q_meals_eaten
+          kind: Question
+          title: "Which meals did you eat today?"
+          input:
+            control: Checkbox
+            labels:
+              1: "Breakfast"
+              2: "Lunch"
+              4: "Dinner"
+
+    - id: per_meal
+      kind: Roster
+      iterateOver: "q_meals_eaten.outcome"
+      labels:
+        1: "Breakfast"
+        2: "Lunch"
+        4: "Dinner"
+      items:
+        - id: q_satisfaction
+          kind: Question
+          title: "How satisfied were you?"
+          input:
+            control: Slider
+            min: 1
+            max: 5
+```
 
 ### 3. Items - The Question Types
 
@@ -971,7 +969,7 @@ When creating QML questionnaires, ensure:
 ### Example: Complete Demographic Questionnaire
 
 ```yaml
-qmlVersion: "1.0"
+qmlVersion: "2.0"
 questionnaire:
   title: "Customer Demographics and Preferences"
   codeInit: |

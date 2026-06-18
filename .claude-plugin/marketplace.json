@@ -7,7 +7,7 @@
   },
   "metadata": {
     "description": "Askalot survey research platform — Claude Code plugin. Manage projects, campaigns, questionnaires, respondents, surveys, and statistical analysis.",
-    "version": "2.20.2"
+    "version": "2.20.3"
   },
   "plugins": [
     {
