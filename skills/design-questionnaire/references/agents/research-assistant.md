@@ -1,11 +1,6 @@
 ---
-name: research_assistant
+name: research-assistant
 description: Conversational research agent with graph-aware document retrieval. Use for analysing reference documents, identifying research goals, and drafting structured Research Briefs with RQ-* / SC-* / REQ-* entries.
-model: inherit
-skills:
-  - research-methodology
-  - mcp-document-tools
-tools: mcp__plugin_askalot_askalot__list_indexed_documents, mcp__plugin_askalot_askalot__get_document_summary, mcp__plugin_askalot_askalot__search_document_chunks_by_keyword, mcp__plugin_askalot_askalot__get_document_chunk, mcp__plugin_askalot_askalot__read_project_summary, mcp__plugin_askalot_askalot__read_brief, mcp__plugin_askalot_askalot__edit_brief, mcp__plugin_askalot_askalot__list_methodology_papers, mcp__plugin_askalot_askalot__get_methodology_paper_summary, mcp__plugin_askalot_askalot__search_methodology_library, mcp__plugin_askalot_askalot__get_methodology_chunk
 ---
 
 You are a research analyst preparing requirements for questionnaire design.

@@ -1,6 +1,6 @@
 ---
 name: questionnaire-logic
-description: Use when planning or authoring a questionnaire's skip graph, analyzing reachability or dead-code, reasoning about logical consistency of filters and preconditions, or anticipating what the askalot_qml.z3 static validator will flag. Distilled from the graph-theoretic literature — Fagan & Greenberg (1988), Elliott (2012), Feeney & Feeney (2019), Schiopu-Kratina et al. (2015), Manski & Molinari (2008). Primary audience is the qml_planner sub-agent, but useful for any Designer-level structural decision.
+description: Use when planning or authoring a questionnaire's skip graph, analyzing reachability or dead-code, reasoning about logical consistency of filters and preconditions, or anticipating what the askalot_qml.z3 static validator will flag. Distilled from the graph-theoretic literature — Fagan & Greenberg (1988), Elliott (2012), Feeney & Feeney (2019), Schiopu-Kratina et al. (2015), Manski & Molinari (2008). Primary audience is the qml-planner sub-agent, but useful for any structural decision in the design-questionnaire flow.
 ---
 
 # Questionnaire Logic — Graph-Theoretic Reference
@@ -42,7 +42,7 @@ of $x$ **and** $\mathrm{END}$ is a descendant of $x$
 **Waist nodes.** Nodes that appear on *every* maximal path from $R$
 to $\mathrm{END}$. Every questionnaire has at least two (the source
 and terminal); well-structured questionnaires have waist nodes at
-section boundaries. The qml_planner should design toward named waist
+section boundaries. The qml-planner should design toward named waist
 nodes — they're natural chapter boundaries and they stabilize
 downstream variance analysis (fagan1988census, p.~16–17).
 
@@ -125,7 +125,7 @@ the Z3 validator's reachability pass implements.
 
 ## 4. Authoring heuristics that fall out of the theory
 
-Five rules every qml_planner output should obey. They're empirically
+Five rules every qml-planner output should obey. They're empirically
 grounded, not stylistic preferences.
 
 ### 4.1 Prefer hub-and-spoke over deep nesting
@@ -202,7 +202,7 @@ expensive or sensitive.
 ## 6. Mapping to `askalot_qml.z3` static validation
 
 The Z3 validator implements (roughly) these passes. Anticipate what
-it will flag so qml_planner produces plans that pass on the first
+it will flag so qml-planner produces plans that pass on the first
 run:
 
 | Pass | What it checks | Theory backing |
@@ -213,15 +213,15 @@ run:
 | Consistency | No path carries contradictory filters (e.g. `age<18` AND `employed=true` where `employed` implies `age≥16`) | Feeney's structural-paths check |
 | Postcondition feasibility | Every postcondition has at least one satisfying answer | SMT-solver's built-in check |
 
-If you find yourself about to hand a plan to qml_writer that would
+If you find yourself about to hand a plan to qml-writer that would
 trip any of these, revise the plan. Reaching the validator with a
 broken structure wastes a full generation pass.
 
 ---
 
-## 7. Planning checklist for qml_planner output
+## 7. Planning checklist for qml-planner output
 
-Before handing a plan to qml_writer, walk this list:
+Before handing a plan to qml-writer, walk this list:
 
 1. **Source and terminal identified.** First and last questions
    named; the plan specifies what "end of questionnaire" means

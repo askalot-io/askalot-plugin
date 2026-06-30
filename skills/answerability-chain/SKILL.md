@@ -10,7 +10,7 @@ brief's aspect sections: **goal → audience → sampling/quota → instrument �
 collected data → quality-sufficient**. The chain is a read-only derivation
 over the existing brief.md — it never mutates the brief, the schema, or the
 `brief_proposals` state machine. The same evaluator is the post-collection
-`research_evaluator` pass; this is the *continuous, cross-agent* view of the
+`research-evaluator` pass; this is the *continuous, cross-agent* view of the
 same relationship, not a separate mechanism.
 
 ## When to consult it
@@ -78,7 +78,7 @@ answers each goal:
    campaign/pool/strategy entities (segments, recruitability, precision,
    quality findings). Omit it for a pre-campaign brief — the sampling
    link is then reported *indeterminate*, not falsely broken. Do not
-   re-run quota math; consume what `field_supervisor`/the entities give.
+   re-run quota math; consume what `field-supervisor`/the entities give.
 
 ## Reading the verdict
 

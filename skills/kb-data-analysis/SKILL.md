@@ -28,5 +28,5 @@ The bundled skills cover the agent-facing angle:
   framework for instrument quality
 
 When the agent has Askalot MCP access, prefer
-`mcp__askalot__get_documentation("guide/data-analysis.md")` over a raw
+`get_documentation("guide/data-analysis.md")` over a raw
 fetch.

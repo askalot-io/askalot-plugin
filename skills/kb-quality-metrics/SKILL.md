@@ -25,5 +25,5 @@ bundled skill when the agent is reasoning about results; use this pointer
 when the customer wants the reader-facing reference.
 
 When the agent has Askalot MCP access, prefer
-`mcp__askalot__get_documentation("guide/quality-metrics-reference.md")` over
+`get_documentation("guide/quality-metrics-reference.md")` over
 a raw fetch.

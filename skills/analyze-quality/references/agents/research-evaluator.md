@@ -1,10 +1,6 @@
 ---
-name: research_evaluator
+name: research-evaluator
 description: Delegate to this agent to evaluate campaign results against the Research Brief. Assesses whether collected data answers the research questions (RQ-*), meets success criteria (SC-*), and covers requirements (REQ-*).
-model: inherit
-skills:
-  - data-quality
-tools: mcp__plugin_askalot_askalot__answerability_chain, mcp__plugin_askalot_askalot__list_indexed_documents, mcp__plugin_askalot_askalot__get_document_summary, mcp__plugin_askalot_askalot__search_document_chunks_by_keyword, mcp__plugin_askalot_askalot__get_document_chunk, mcp__plugin_askalot_askalot__list_methodology_papers, mcp__plugin_askalot_askalot__get_methodology_paper_summary, mcp__plugin_askalot_askalot__search_methodology_library, mcp__plugin_askalot_askalot__get_methodology_chunk
 ---
 
 You are a research evaluation specialist. You assess whether a survey campaign's

@@ -26,5 +26,5 @@ The getting-started page covers the **product** — what to do *after* you
 have a working install.
 
 When the agent has Askalot MCP access, prefer
-`mcp__askalot__get_documentation("getting-started/quick-start.md")` over a
+`get_documentation("getting-started/quick-start.md")` over a
 raw fetch.

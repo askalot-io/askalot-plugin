@@ -18,7 +18,7 @@ Use the live page when:
   the public docs use plain English; the bundled skill is denser
 
 When the agent has Askalot MCP access, prefer
-`mcp__askalot__get_documentation("guide/qml-syntax.md")` over a raw fetch —
+`get_documentation("guide/qml-syntax.md")` over a raw fetch —
 the MCP tool already speaks docs-relative paths and gives the agent the
 rewritten markdown ready for further chaining via `docs://...` references.
 

@@ -48,7 +48,7 @@ screen → tokens issued back to Claude Code
 
 What happens, step by step:
 
-1. Claude Code calls (for example) `mcp__askalot__list_projects`.
+1. Claude Code calls (for example) `mcp__plugin_askalot_askalot__list_projects`.
 2. Portor responds with `401 Unauthorized` and a `WWW-Authenticate`
    header pointing at its OAuth metadata.
 3. Claude Code reads `/.well-known/oauth-authorization-server`,
@@ -76,7 +76,7 @@ You only see the browser handshake once (or after revocation).
 After the browser flow completes, run any read-only MCP tool to confirm:
 
 ```
-@mcp__askalot__list_projects
+@mcp__plugin_askalot_askalot__list_projects
 ```
 
 A successful call lists your accessible projects (or returns an empty

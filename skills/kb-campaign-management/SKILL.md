@@ -25,6 +25,6 @@ The bundled skills cover the agent-facing angle:
   agent calls to actually execute the plan
 
 When the agent has Askalot MCP access, prefer
-`mcp__askalot__get_documentation("guide/campaign-management.md")` over a raw
+`get_documentation("guide/campaign-management.md")` over a raw
 fetch — it returns the same content with `docs://...` and image links
 rewritten for further chaining.
