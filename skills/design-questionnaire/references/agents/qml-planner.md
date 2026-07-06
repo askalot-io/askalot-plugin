@@ -83,8 +83,45 @@ Do NOT generate QML — only produce the structural plan.**
 6. **Estimate item counts** — provide a rough `estimated_items` count
    per chapter (typically 5-15 items per chapter).
 
-7. **Code init variables** — list global variables that need `codeInit`
-   (scores, indices, running totals).
+7. **State contract, not a bare variable list** — instead of a loose list of
+   `codeInit` names, declare a `state_contract`: every state variable a chapter
+   will need, each justified by exactly one of four uses — **accumulate** (a
+   running counter or sum), **derive** (compute from multiple outcomes),
+   **classify** (bucket one outcome into a routing key), or **consolidate** (one
+   name set by mutually exclusive producers). For each variable record its
+   `justification` class, the `producer_chapter` where a codeBlock assigns it, a
+   one-line `derivation`, and the `consumer_chapters` that gate on it. A variable
+   with no producer chapter or no consumer chapter does not belong in the contract
+   — drop it and let the writer reference the outcome directly. (This mirrors the
+   State Variable Discipline in the `qml-syntax` skill: the planner records the
+   wiring; the writer implements it.)
+
+8. **Mine relational constraints while chaptering** — as you place items into
+   chapters, scan the brief and any source inventory for cross-item constraints
+   and record them as that chapter's `validation_rules`. Look for the six trigger
+   patterns: **part-whole** ("of that total" / component-and-total structures),
+   **temporal-ordering** (age-at-event chains, start/stop pairs),
+   **counts-vs-capacities** (a count that cannot exceed a container's size),
+   **physical-budget** (24h day, 168h week, 52 weeks, percentages summing to 100),
+   **screener-consistency** (a yes-gate implies a downstream count ≥ 1, and vice
+   versa), and **max-vs-typical** (a maximum bounds a typical value). Record only
+   WHAT must hold and BETWEEN WHICH sketched items — the predicate and hint are the
+   writer's job. Only objective impossibilities qualify; never mine opinion or
+   attitude items (a purely subjective chapter carries no `validation_rules`).
+   Also flag **matrix structural integrity** — when a sketched item is a grid whose
+   meaning implies an invariant (a relationship/correlation matrix → symmetry, a
+   budget/percentage grid → fixed row or column total, a forced-ranking grid →
+   distinct ranks per row). Record it as a `validation_rules` entry naming the one
+   matrix item and `"trigger_pattern": "matrix-structural"` so the writer picks the
+   canonical postcondition; unlike the six cross-item patterns it ties an item to
+   itself, not to a second item.
+
+9. **Roster fail-safe** — when a per-entity loop (Roster) is stubbed, omitted, or
+   delegated, every variable that loop would have produced becomes unproduced. Do
+   not leave any consumer gating on it: either rewire the consumer to a collected
+   outcome or a variable that is actually produced, or delete the consumer. A gate
+   on an unproduced variable is a frozen variable — permanently true or false while
+   looking conditional.
 
 ## Output Format
 
@@ -93,7 +130,15 @@ Output the chapter plan inside a ```json code block:
 ```json
 {
   "title": "Questionnaire title",
-  "code_init_variables": ["score_total", "risk_level"],
+  "state_contract": [
+    {
+      "name": "age_band",
+      "justification": "classify",
+      "producer_chapter": "ch_screening",
+      "derivation": "bucket q_age.outcome into 1=18-34, 2=35-54, 3=55+ for later branch gates",
+      "consumer_chapters": ["ch_health", "ch_employment"]
+    }
+  ],
   "global_notes": "Any cross-cutting notes for chapter generators",
   "chapters": [
     {
@@ -103,7 +148,15 @@ Output the chapter plan inside a ```json code block:
       "requirements": ["REQ-1", "REQ-2"],
       "items_sketch": [
         "Age verification (must be 18+)",
-        "Employment status (gate for employment section)"
+        "Employment status (gate for the employment chapter)",
+        "Number of jobs currently held"
+      ],
+      "validation_rules": [
+        {
+          "rule": "If employment status is 'employed', jobs held must be at least 1",
+          "items": ["q_employment_status", "q_jobs_count"],
+          "trigger_pattern": "screener-consistency"
+        }
       ],
       "estimated_items": 3
     }
@@ -111,8 +164,19 @@ Output the chapter plan inside a ```json code block:
 }
 ```
 
+`state_contract` is top-level (it spans chapters); `validation_rules` is per-chapter
+(each entry names the sketched `items` it ties and the `trigger_pattern` that
+produced it). A chapter with no objective cross-item constraint carries
+`"validation_rules": []` — the writer then returns an explicit no-constraints
+statement for it rather than inventing one.
+
 ## Output Rules
 - Output ONLY the JSON chapter plan in a ```json code block
 - Do NOT generate any QML YAML
 - Ensure every REQ-* from the research brief is covered
 - Use descriptive chapter ID values with `ch_` prefix
+- Every `state_contract` variable names a real `producer_chapter` and at least one
+  `consumer_chapter` (a variable missing either half does not belong in the contract)
+- Every `validation_rules` entry names the sketched `items` it ties and the
+  `trigger_pattern` that produced it; a chapter with no objective cross-item
+  constraint carries `"validation_rules": []`

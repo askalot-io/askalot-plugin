@@ -59,9 +59,93 @@ You will be given:
    - `description` of what the chapter covers
    - `requirements` — the REQ-* IDs this chapter must address
    - `items_sketch` — rough descriptions of expected items
+   - `validation_rules` — the relational constraints the planner mined for this
+     chapter. Each carries a prose `rule`, the sketched `items` it ties, and the
+     `trigger_pattern` that produced it. You implement each as a postcondition, or
+     record why it does not apply (see the Return Contract). An empty list means
+     the planner found no objective cross-item constraint here.
 3. Previously generated QML from earlier chapters (if any) — use this to
    reference variables already defined. Do NOT redefine variables from prior chapters.
-4. Global notes and code_init variables from the plan
+4. Your slice of the `state_contract`:
+   - **May read** — variables produced by an earlier chapter that you are allowed
+     to reference. Each is guaranteed a producer, so a gate on it is safe.
+   - **Must produce** — variables this chapter is responsible for assigning, each
+     with its `justification` class and a one-line `derivation`. You MUST write a
+     codeBlock that produces every must-produce variable in this chapter.
+   Plus the plan's global notes. You may reference nothing outside this slice plus
+   your own chapter's item outcomes (see "Reference nothing outside the contract").
+
+## Constraint Mining (run before writing items)
+
+Before drafting any item, mine this chapter for relational constraints — the
+cross-item rules that make an answer set objectively impossible. Start from the
+planner's `validation_rules`, then scan `items_sketch` and the brief for any it
+missed, using the six trigger patterns:
+
+1. **Part-whole** — "of that total" / component-and-total structures → a component
+   cannot exceed the total, or the components sum to it: `part <= whole`, or an
+   explicit-sum equality `a + b + c == total`.
+2. **Temporal ordering** — age-at-event chains and start/stop pairs → the earlier
+   value bounds the later one: `earlier <= later` (age at diagnosis ≤ current age;
+   start year ≤ end year).
+3. **Counts vs capacities** — a count of things cannot exceed the container that
+   holds them: `count <= capacity` (children ≤ household size).
+4. **Physical budgets** — fixed real-world totals: 24 hours in a day, 168 hours in
+   a week, 52 weeks in a year, percentages summing to 100. Components sum to (or
+   stay under) the budget.
+5. **Screener consistency** — a yes-gate implies a non-zero downstream count, and a
+   non-zero count implies the gate was yes: `q_screener.outcome == 1` pairs with
+   `q_count.outcome >= 1`. Encode the direction this chapter can enforce.
+6. **Max ≥ typical** — a reported maximum bounds a reported typical/usual value of
+   the same quantity: `typical <= maximum`.
+
+**Matrix structural integrity (within-item).** A distinct class from the six
+above — it constrains one `MatrixQuestion`'s own cells rather than tying two
+different items, so by the validator's relational/local split it registers as a
+*local* postcondition (own-outcome only), not a relational one. When this chapter
+contains a matrix whose meaning implies a structural invariant, add the matching
+canonical postcondition (see
+[`matrix-constraint-patterns.md`](../../../qml-syntax/matrix-constraint-patterns.md)):
+**symmetry** (`cell[j][k] == cell[k][j]`, for a relationship/correlation grid),
+**fixed-sum allocation** (each row — or column — sums to a fixed total, for a
+budget/percentage grid), or **ranking/distinctness** (each row is a permutation of
+`1..n`, for a forced-ranking grid). Add one only when the matrix's meaning implies
+it; a plain rating grid correctly carries none.
+
+Implement each surviving cross-item constraint as a postcondition on the later of
+the two items it ties; implement a matrix structural constraint as a postcondition
+on the matrix item itself. A `validation_rules` entry that does not actually hold
+for this chapter's items is recorded as an omission in your return (see Return
+Contract), never silently dropped.
+
+### Guard-rails (do NOT over-constrain)
+
+- **Objective impossibilities only.** Mine constraints that are physically or
+  logically impossible to violate — never opinion, attitude, or preference
+  patterns. Two subjective ratings have no "correct" relationship; inventing one
+  corrupts the data. A chapter of purely subjective scales correctly yields zero
+  relational postconditions.
+- **Never restate an input's own bounds.** A postcondition that repeats the
+  control's `min`/`max` (e.g. `q_age.outcome >= 18` on an Editbox already
+  `min: 18`) validates nothing and draws a duplicate-input-bound warning. A
+  postcondition must relate the item to a *different* item or variable.
+- **Actionable hints.** Every hint tells the respondent how to fix the answer and
+  names both items involved — "Years worked cannot exceed your age minus 16", not
+  "Invalid value".
+- **Stay in the Z3-verifiable subset.** Generated predicates use only the subset
+  the validator can reason about: NO `sum()`, `len()`, or list comprehensions —
+  the validator silently drops them, so the constraint would enforce nothing.
+  Write sums as explicit additions (`a + b + c == total`), never `sum([a, b, c])`.
+  **Exception — canonical matrix patterns.** The three matrix structural forms in
+  [`matrix-constraint-patterns.md`](../../../qml-syntax/matrix-constraint-patterns.md)
+  DO use comprehensions (`all([...])`, `sum([...]) == K`, `len(set([...])) == K`) and
+  ARE statically verified in exactly those canonical shapes — this scalar
+  comprehension ban does not apply to them. Copy the shape from that reference
+  verbatim (the `if k > j` symmetry filter, literal range bounds); a variant the
+  reference marks as runtime-only loses Z3's design-time proof — FlowProcessor
+  still enforces it at interview time, but `validate_qml_file` can't confirm its
+  reachability/satisfiability ahead of fielding, and the gap surfaces via
+  `coverage_gaps` rather than a hard error.
 
 ## Chapter Generation Rules
 
@@ -73,10 +157,18 @@ You will be given:
    variable. Preconditions do NOT cascade or inherit. Every conditional item
    must carry its own complete precondition.
 
-3. **Use postconditions** — add data quality validation where appropriate.
+3. **Enforce mined constraints as postconditions** — implement every relational
+   constraint from Constraint Mining as a postcondition on the later item, with an
+   actionable hint. Either the chapter carries at least one relational
+   postcondition, or your return explicitly states no cross-item constraints exist
+   (see Return Contract).
 
-4. **Use codeBlocks** — for runtime state: scoring, running counters,
-   aggregation, pattern tracking, and adaptive flow control.
+4. **Use codeBlocks to produce your contract variables** — write a codeBlock for
+   every must-produce variable in your state-contract slice (scoring, running
+   counters, aggregation, classification), plus any other runtime state the flow
+   needs. Do NOT create a variable that merely copies one outcome unchanged —
+   reference the outcome directly (a pass-through alias shrinks verification
+   coverage for nothing).
 
 5. **Progressive disclosure** — use Switch/Radio screening items with
    follow-up items gated by preconditions.
@@ -89,7 +181,9 @@ You will be given:
 
 8. **Consider QuestionGroup and MatrixQuestion** — when multiple items share
    the same response scale, use QuestionGroup. When items form a grid, use
-   MatrixQuestion.
+   MatrixQuestion — and if the grid's meaning implies a structural invariant
+   (relationship symmetry, a fixed row/column total, or a forced ranking), add the
+   matching postcondition from the matrix structural-integrity class above.
 
 ## Output Format
 
@@ -123,3 +217,32 @@ Output the chapter as YAML block fragments in a ```yaml code block:
 - Do NOT include `qmlVersion`, `title`, `codeInit`, or other top-level fields
 - Start each block with `- id: {block_id}` and nest items inside `items:`
 - Use `kind:` for item types — NOT `type:`
+
+## Reference nothing outside the contract
+
+Every identifier in every precondition, postcondition, and codeBlock you write must
+resolve to one of:
+
+- an item id you define in **this** chapter (`q_*.outcome`),
+- a **may-read** variable from your state-contract slice, or
+- a **must-produce** variable you assign in this chapter.
+
+A bare name that resolves to none of these is a phantom — the predicate namespace is
+closed, so it fails open at runtime and is invisible to the validator, and the
+intended logic enforces nothing. Conversely, every must-produce variable in your
+slice must actually be produced by a codeBlock in this chapter; a must-produce you
+never assign becomes a frozen variable for every downstream consumer.
+
+## Return Contract (report what you enforced)
+
+Alongside the YAML, your return to the Designer MUST state, for this chapter, either:
+
+- the relational postconditions you enforced (which items, which trigger pattern), OR
+- that no cross-item constraints exist for this chapter — an explicit
+  no-constraints statement.
+
+Emit at least one relational postcondition **or** the explicit no-constraints
+statement — silence is not acceptable, since a chapter that neither enforces nor
+waives is indistinguishable from one you forgot to mine. A purely subjective chapter
+(attitudes, ratings, open text) legitimately returns the no-constraints statement; do
+NOT invent a constraint to fill the slot.

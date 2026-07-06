@@ -137,9 +137,126 @@ precondition:
   - predicate: employment_status == "employed"
 ```
 
-## Overlapping Preconditions
+## Hoisting Shared Gates
 
-Overlapping preconditions across multiple items are explicitly OK. Do not optimize or deduplicate -- cover the research brief thoroughly. Each item must be independently conditional.
+When one predicate guards **every** item in a block, do not repeat it on each item --
+hoist it to the block's `precondition`. A block-level precondition applies to every item
+in the block (it is AND-ed with each item's own precondition at evaluation time), so one
+gate covers them all and each item keeps only its **item-specific residual**.
+
+This does not conflict with the per-item rule above. That rule forbids relying on a
+*sibling item's* precondition to cascade -- it never does. Hoisting moves the shared gate
+*up a level* to the block, which legitimately gates every item the block contains.
+
+- **Shared by all items in a block** -> move the gate to the block `precondition`; items keep residuals only.
+- **Shared by some items** (gated and ungated interleaved) -> factor the gated items into their own Group block carrying the shared gate. QML blocks do not nest inside an item's `items:`, so a dedicated sibling Group block is the scoping mechanism.
+- **Not shared** -> keep the gate on the individual item.
+
+### Shared gate -> block precondition
+
+```yaml
+# WRONG: q_adult.outcome == 1 repeated on every item in the block
+- id: b_adult_module
+  kind: Group
+  items:
+    - id: q_income
+      kind: Question
+      title: "What is your annual income?"
+      precondition:
+        - predicate: q_adult.outcome == 1
+      input:
+        control: Editbox
+        min: 0
+        max: 1000000
+    - id: q_employment
+      kind: Question
+      title: "What is your employment status?"
+      precondition:
+        - predicate: q_adult.outcome == 1
+      input:
+        control: Radio
+        labels:
+          1: "Employed"
+          2: "Unemployed"
+
+# RIGHT: hoist the shared gate to the block; each item carries only its residual
+- id: b_adult_module
+  kind: Group
+  precondition:
+    - predicate: q_adult.outcome == 1
+  items:
+    - id: q_income
+      kind: Question
+      title: "What is your annual income?"
+      # no item precondition -- the block gate covers it
+      input:
+        control: Editbox
+        min: 0
+        max: 1000000
+    - id: q_employment
+      kind: Question
+      title: "What is your employment status?"
+      precondition:
+        # only the item-specific residual remains
+        - predicate: q_income.outcome > 50000
+      input:
+        control: Radio
+        labels:
+          1: "Employed"
+          2: "Unemployed"
+```
+
+### Interleaved gates -> dedicated Group block
+
+When only some items share a gate, do not hoist it to the whole block -- that would gate
+the ungated items too. Put the gated items in their own Group block with the shared gate
+as the block precondition. Blocks display in their defined order, so place the follow-up
+block immediately after the block that produces its gate:
+
+```yaml
+- id: b_health
+  kind: Group
+  items:
+    - id: q_general_health
+      kind: Question
+      title: "How would you rate your general health?"
+      input:
+        control: Radio
+        labels:
+          1: "Poor"
+          2: "Fair"
+          3: "Good"
+    - id: q_smokes
+      kind: Question
+      title: "Do you currently smoke?"
+      input:
+        control: Switch
+        on: "Yes"
+        off: "No"
+
+- id: b_smoker_followup
+  kind: Group
+  precondition:
+    - predicate: q_smokes.outcome == 1
+  items:
+    - id: q_cigs_per_day
+      kind: Question
+      title: "How many cigarettes per day?"
+      input:
+        control: Editbox
+        min: 1
+        max: 100
+    - id: q_quit_attempts
+      kind: Question
+      title: "How many times have you tried to quit?"
+      input:
+        control: Editbox
+        min: 0
+        max: 50
+```
+
+The gated items move together under one block gate; each still carries any residual
+unique to it.
 
 ## Common Patterns
 

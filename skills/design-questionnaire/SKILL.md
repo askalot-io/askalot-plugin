@@ -181,12 +181,18 @@ base for reverse-coded items?" — consult the shared methodology library via
    produces an ordered list of chapters with requirement mappings.
 
 4. **Generate chapters sequentially** — for each chapter in the plan:
-   - Delegate to `qml-writer` with the chapter specification
+   - Delegate to `qml-writer` with the chapter specification, its
+     `validation_rules` (the relational constraints the planner mined for this
+     chapter), and its slice of the `state_contract` (the variables it may read
+     and the variables it must produce, each with justification and derivation)
    - Include the Research Brief and all previously generated QML as context
-   - The writer returns QML block fragments for that chapter
+   - The writer returns QML block fragments **and** a per-chapter statement of the
+     relational postconditions it enforced or an explicit no-constraints statement
+     — collect these omission statements; the pre-save audit checks them
 
-5. **Assemble and validate** — combine all chapter outputs into a complete QML
-   document. Use `validate_qml_file` to check for errors. Fix any issues.
+5. **Assemble and audit before saving** — combine all chapter outputs into a
+   complete QML document, then run the Pre-Save Audit below and loop on
+   `validate_qml_file` until errors are zero. Fix any issues.
 
 6. **Save and present** — use `save_qml_file` to write the validated QML.
    Present the result to the customer with a summary of what was generated.
@@ -203,14 +209,33 @@ Do NOT delegate to sub-agents. Handle refinements directly:
 Stay conversational. Use your own knowledge and MCP document tools to explore.
 Only delegate to sub-agents when you're ready for structured output.
 
-## Quality Gates
+## Pre-Save Audit
 
-Before presenting QML to the customer, verify:
-- Every REQ-* from the Research Brief maps to at least one QML item
-- Conditional questions have preconditions
-- Data quality rules have postconditions
-- Variables referenced in preconditions are defined in earlier chapters
-- The questionnaire validates without errors
+Before `save_qml_file`, run this concrete audit over the assembled QML — it is
+measurable, not a vibe check. Do not save until every check passes:
+
+- **Zero bare names.** Every identifier in every precondition, postcondition, and
+  codeBlock resolves to an item id (`q_*.outcome`) or a variable a codeBlock
+  produces. A name with no producer is a phantom — fix it before saving.
+- **Every `codeInit` variable is wired.** Each has at least one producer codeBlock
+  (assigns it) AND at least one consumer (a precondition, postcondition, or
+  codeBlock reads it). A variable missing either half is a frozen or write-only
+  defect — delete it or wire it.
+- **Every planned validation rule is accounted for.** Each chapter's
+  `validation_rules` is either implemented as a postcondition or its omission is
+  justified in the writer's collected no-constraints statement. No planned rule
+  silently disappears.
+- **No postcondition duplicates an input's bounds.** A postcondition that merely
+  restates its control's own `min`/`max` validates nothing — remove it.
+- **Validator findings are fix-items, not noise.** Errors (undefined name,
+  frozen-gate dead code) block saving outright. Warnings (write-only variable,
+  pass-through alias, duplicate-input-bound) are defects too — fix or consciously
+  waive each one; loop on `validate_qml_file` until errors are zero and every
+  warning is understood.
+
+The audit sits on top of the base coverage checks — every REQ-* maps to at least
+one item, every conditional item carries its own complete precondition, and the
+questionnaire validates without errors.
 
 ## Conversation Guidelines
 

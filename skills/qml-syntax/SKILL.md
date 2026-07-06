@@ -314,7 +314,20 @@ input:
     1000: "$1000"
 ```
 
-#### 4.8 Choosing the Right Control
+#### 4.8 Textarea (Free Text)
+
+Captures open-ended text. The outcome is a **string**, not an integer — Z3 ignores it
+entirely (no variable is created), so a Textarea outcome must never appear in a
+precondition, postcondition, or codeBlock predicate. Use it for verbatim answers only.
+
+```yaml
+input:
+  control: Textarea
+  placeholder: "Describe your experience in your own words"  # Optional
+  maxLength: 500  # Optional: maximum characters
+```
+
+#### 4.9 Choosing the Right Control
 
 | Use Case | Control | Value Definition |
 |---|---|---|
@@ -325,6 +338,7 @@ input:
 | Multiple selection (hobbies, symptoms) | Checkbox | `labels` (power-of-2 keys) |
 | Single selection, few options (2-5 items) | Radio | `labels` |
 | Single selection, many options (6+ items) | Dropdown | `labels` |
+| Open-ended text (verbatims, descriptions) | Textarea | optional `placeholder`/`maxLength`; string outcome, invisible to logic |
 
 **Special case — MatrixQuestion cells:**
 - 2-3 options per cell: use **Radio** (fits in the grid)
@@ -547,8 +561,7 @@ if q_choice.outcome in [1, 2, 3]:
 elif q_choice.outcome in [4, 5]:
     category = "high"
 
-# Variable assignment from outcomes
-previous_answer = q_age.outcome
+# Deriving a value from multiple outcomes (justified — not a pass-through copy)
 age_difference = q_spouse_age.outcome - q_age.outcome
 
 # Setting outcomes programmatically
@@ -598,6 +611,63 @@ blocks:
 - Boolean values are automatically converted to 0/1
 - String values have very limited support (mainly for categorization)
 - The Z3 constraint solver validates all code paths for consistency
+
+#### 6.7 State Variable Discipline
+
+Every `codeInit` variable narrows what the solver can prove, so the default is to
+**reference `q_item.outcome` directly** and create a variable only when you genuinely
+cannot. An outcome reference is inside the Z3-verified envelope — the solver knows its
+domain from the input control and reasons about every gate on it. A variable is only as
+verified as its wiring: if nothing produces it, or nothing reads it, the logic it was
+meant to carry silently enforces nothing. **Every unnecessary variable removes logic from
+formal verification.**
+
+**A `codeInit` variable is justified by exactly one of four uses:**
+
+1. **Accumulate** across items — a running counter or sum (`risk_score += 20`).
+2. **Derive** a value from multiple outcomes (`actual_hours = q_end.outcome - q_break.outcome`).
+3. **Classify** an outcome into a routing key (`if q_path.outcome == 1: track = "detailed"`).
+4. **Consolidate** mutually exclusive producers into one name (`age` set by either `q_age_dob` or `q_age_manual`, never both).
+
+If a variable does none of these, delete it and reference the outcome directly.
+
+**Producer-and-consumer obligation.** Every `codeInit` variable must have at least one
+`codeBlock` that assigns it (a producer) AND at least one precondition, postcondition, or
+codeBlock that reads it (a consumer). A variable missing either half is a defect, not a
+placeholder:
+
+- No producer → a **frozen variable**: it keeps its `codeInit` constant for the whole run,
+  so every gate on it is permanently true or permanently false while looking conditional.
+  The usual cause is a planned producer (often in a stubbed or omitted section) that was
+  never written.
+- No consumer → a **write-only variable**: state computed and thrown away.
+
+**Bare-name ban.** Every identifier in every predicate must resolve to an item id
+(`q_x.outcome`) or a variable some `codeBlock` produces — nothing else exists at runtime.
+A name with no producer anywhere in the file is a **phantom variable**: the predicate
+evaluation namespace is closed (no runtime context is injected), so the predicate fails
+open at runtime (treated as true) and is a free symbol to the validator (treated as
+satisfiable). The intended logic enforces nothing, statically and at runtime.
+
+**Pass-through aliases are not variables.** A variable whose only assignment copies one
+outcome unchanged adds indirection for nothing and shrinks verification coverage:
+
+```yaml
+# WRONG — pass-through alias: the copy leaves the verified envelope
+codeBlock: |
+  smoking_status = q_smoking.outcome
+precondition:
+  - predicate: smoking_status == 1
+
+# RIGHT — reference the outcome directly (its domain is verified)
+precondition:
+  - predicate: q_smoking.outcome == 1
+```
+
+**The validator enforces this discipline.** Undefined names are **errors** (the file fails
+validation); a frozen gate classifies as dead code (an unreachable-item error); write-only
+variables and pass-through aliases draw **warnings**. Treat every such finding as a
+fix-item, not noise.
 
 ### 7. Best Practices and Design Patterns
 
@@ -973,10 +1043,10 @@ qmlVersion: "2.0"
 questionnaire:
   title: "Customer Demographics and Preferences"
   codeInit: |
-    # Initialize tracking variables
-    total_household_income = 0
+    # Classification key: produced in b_employment (q_income) and read by the
+    # closing premium-offer message. Every codeInit variable must be both
+    # produced by a codeBlock and read by a consumer (see §6.7).
     customer_segment = "standard"
-    eligible_for_offers = 0
     
   blocks:
     - id: b_basic_info
@@ -1062,11 +1132,11 @@ questionnaire:
           kind: Question
           title: "What is your annual household income?"
           codeBlock: |
-            total_household_income = q_income.outcome
-            if q_income.outcome >= 100000:
+            # Classify the income bracket into a routing key (justification: classify).
+            # q_income.outcome is the label key (1-6), not a dollar amount.
+            if q_income.outcome >= 5:
                 customer_segment = "premium"
-                eligible_for_offers = 1
-            elif q_income.outcome >= 50000:
+            elif q_income.outcome >= 3:
                 customer_segment = "standard_plus"
           input:
             control: Dropdown
@@ -1077,7 +1147,14 @@ questionnaire:
               4: "$75,000 - $99,999"
               5: "$100,000 - $149,999"
               6: "$150,000 or more"
-              
+
+        - id: q_premium_offer
+          kind: Comment
+          title: "As a premium customer, you qualify for our exclusive offers."
+          precondition:
+            # Consumer: customer_segment is produced in q_income and read here.
+            - predicate: customer_segment == "premium"
+
         - id: q_thank_you
           kind: Comment
           title: "Thank you for completing the survey!"
@@ -1090,7 +1167,7 @@ When creating QML questionnaires, think declaratively:
 2. **Always define valid values** - `min`/`max` for range-based controls, `labels` for selection controls
 3. **Use preconditions** - Define when a question applies, not how to navigate to it
 4. **Use postconditions** - Define what must be true, not how to enforce it
-5. **Choose the right control** - Match the UI to the data type (see Section 4.8)
+5. **Choose the right control** - Match the UI to the data type (see Section 4.9)
 6. **Keep code blocks Z3-verifiable** - Only use the supported Python subset (no `sum`, `len`, `append`, etc.)
 7. **Minimize cross-block dependencies** - Keep related items in the same block
 8. **Provide helpful hints** - Make postcondition messages user-friendly
