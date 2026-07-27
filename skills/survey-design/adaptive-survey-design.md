@@ -166,7 +166,8 @@ codeInit: |
 screening section.
 ```yaml
 - id: calc_risk_profile
-  type: codeBlock
+  kind: Comment
+  title: "Compute the risk profile"
   codeBlock: |
     risk_score = 0
     if q_age.outcome < 30:

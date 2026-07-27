@@ -10,7 +10,8 @@ and established survey weighting literature.
 ### Raking vs Post-Stratification
 - **Raking (iterative proportional fitting)**: Preferred when adjusting for 5-8 marginal
   variables simultaneously. Each variable adjusted independently, then iterated until
-  convergence. This is the method used by Askalot's `apply_raking` tool
+  convergence. This is the method Askalot runs inside `code_open_ends` (the
+  Bronze→Silver derive rakes on the coded case base)
 - **Post-stratification**: Preferred when adjusting for 2-3 cross-tabulated variables
   (e.g., age × gender cells). More precise but requires sufficient respondents per cell
 

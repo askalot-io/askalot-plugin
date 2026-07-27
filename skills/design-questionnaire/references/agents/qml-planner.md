@@ -57,7 +57,8 @@ Do NOT generate QML — only produce the structural plan.**
 
 ## Workflow
 
-1. Read the research brief and identify all REQ-* requirements
+1. Read the research brief and identify all REQ-* requirements and KPI-*
+   indicators (each KPI carries a collection mode: `direct`, `derived`, or `open`)
 2. Group requirements into thematic chapters (4-10 chapters)
 3. Order chapters logically (screening → demographics → thematic sections)
 4. Output the chapter plan as JSON
@@ -67,8 +68,14 @@ Do NOT generate QML — only produce the structural plan.**
 1. **Screening first** — if the questionnaire needs to filter respondents,
    the first chapter should be a screening chapter that sets gate variables.
 
-2. **Demographics early** — demographic variables (age, gender, location,
-   income) should be in an early chapter since later chapters often branch on them.
+2. **Gate demographics early, sensitive demographics late** — demographic
+   variables that later chapters branch on or that quotas screen on (age,
+   region, employment status) belong in an early chapter. Sensitive
+   demographics nothing branches on (income, health, religion) belong in
+   the final chapter: sensitive items asked early depress completion, and
+   by the end the respondent has invested in the conversation
+   (`dillman2014internet`). Weighting-only demographics may also sit late —
+   raking happens at analysis time, not in the flow.
 
 3. **4-10 chapters** — fewer than 4 means the plan is too coarse;
    more than 10 means chapters are too fragmented.
@@ -77,8 +84,13 @@ Do NOT generate QML — only produce the structural plan.**
    can reference variables from earlier ones. Place foundational variables
    (screening gates, demographic segments) before chapters that branch on them.
 
-5. **Cover ALL requirements** — every REQ-* from the research brief must
-   appear in at least one chapter's `requirements` list.
+5. **Cover ALL requirements and KPIs** — every REQ-* from the research brief
+   must appear in at least one chapter's `requirements` list, and every KPI-*
+   must be collected by at least one chapter's sketched items, honoring its
+   collection mode: `direct` → one item; `derived` → the full item set its
+   derivation names; `open` → one open-ended item, listed in the top-level
+   `clustering_candidates`. A KPI no chapter collects breaks the research
+   conclusion chain — surface it rather than silently dropping it.
 
 6. **Estimate item counts** — provide a rough `estimated_items` count
    per chapter (typically 5-15 items per chapter).
@@ -123,6 +135,36 @@ Do NOT generate QML — only produce the structural plan.**
    on an unproduced variable is a frozen variable — permanently true or false while
    looking conditional.
 
+10. **Derived KPIs compute at analysis time by default** — a KPI's derivation
+    formula belongs to the analysis phase, not the questionnaire. Add a
+    `state_contract` variable for it ONLY when a later chapter actually gates
+    on the derived value (justification: derive, with real
+    `consumer_chapters`). A score no chapter branches on must NOT become a
+    codeBlock variable — that is exactly the write-only-variable defect the
+    validator flags. The KPI's `Definition` in the brief is the analyst's
+    formula; the plan only needs to collect its inputs.
+
+11. **Order chapters as a directed conversation** — the questionnaire is a
+    dialogue with the respondent, not a database dump (`dillman2014internet`):
+    - Open with items squarely on the announced survey topic — salient, easy,
+      obviously relevant. The first substantive chapter is why the respondent
+      agreed to participate; burying it behind housekeeping depresses
+      completion.
+    - Group correlated items into one topical chapter and finish a topic
+      before starting the next. Scattering a topic across chapters forces
+      context re-switching and invites order effects — answers assimilate to
+      whatever topic is currently active (`tourangeau2000psychology`).
+    - Within a topic, run general → specific (funnelling,
+      `oppenheim1992questionnaire`): a specific item asked first contaminates
+      the general judgment that follows it.
+    - Place each `open`-collection KPI item at the head of the chapter whose
+      topic it probes — before that topic's closed items, so the offered
+      categories cannot prime the respondent's own framing
+      (`stantcheva2023surveys`).
+    These conversational rules yield to the dependency rules (1, 2, 4) when
+    they conflict — a gate variable must exist before anything branches on
+    it — but within those constraints, conversation order decides.
+
 ## Output Format
 
 Output the chapter plan inside a ```json code block:
@@ -140,12 +182,20 @@ Output the chapter plan inside a ```json code block:
     }
   ],
   "global_notes": "Any cross-cutting notes for chapter generators",
+  "clustering_candidates": [
+    {
+      "kpi": "KPI-3",
+      "chapter": "ch_experience",
+      "item_sketch": "Open: barriers encountered that the closed items did not cover"
+    }
+  ],
   "chapters": [
     {
       "id": "ch_screening",
       "title": "Screening Questions",
       "description": "Determine respondent eligibility",
       "requirements": ["REQ-1", "REQ-2"],
+      "kpis": ["KPI-2"],
       "items_sketch": [
         "Age verification (must be 18+)",
         "Employment status (gate for the employment chapter)",
@@ -168,12 +218,21 @@ Output the chapter plan inside a ```json code block:
 (each entry names the sketched `items` it ties and the `trigger_pattern` that
 produced it). A chapter with no objective cross-item constraint carries
 `"validation_rules": []` — the writer then returns an explicit no-constraints
-statement for it rather than inventing one.
+statement for it rather than inventing one. `kpis` is per-chapter (the KPI-*
+whose data this chapter's items collect); `clustering_candidates` is top-level
+— one entry per `open`-collection KPI, naming the chapter and the sketched
+open item, so the Designer can register it in the brief's
+`semantic_clustering_candidates` section after the QML is saved. A brief with
+no KPI-* entries yields `"clustering_candidates": []` and chapters without a
+`kpis` field — do not invent indicators the brief does not state.
 
 ## Output Rules
 - Output ONLY the JSON chapter plan in a ```json code block
 - Do NOT generate any QML YAML
 - Ensure every REQ-* from the research brief is covered
+- Ensure every KPI-* from the research brief is collected by at least one
+  chapter (listed in that chapter's `kpis`), and every `open`-collection KPI
+  has a `clustering_candidates` entry
 - Use descriptive chapter ID values with `ch_` prefix
 - Every `state_contract` variable names a real `producer_chapter` and at least one
   `consumer_chapter` (a variable missing either half does not belong in the contract)

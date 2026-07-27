@@ -43,25 +43,30 @@ apply to them.
 Pattern in QML:
 ```yaml
 - id: q_has_children
-  type: Switch
-  label: "Do you have any children under 18?"
-  options: [Yes, No]
+  kind: Question
+  title: "Do you have any children under 18?"
+  input:
+    control: Switch
+    on: "Yes"
+    off: "No"
 
 - id: q_num_children
-  type: Number
-  label: "How many children under 18 do you have?"
+  kind: Question
+  title: "How many children under 18 do you have?"
   precondition:
     - predicate: q_has_children.outcome == 1
-  min: 1
-  max: 20
+  input:
+    control: Editbox
+    min: 1
+    max: 20
 ```
 
 ## Screen-Then-Detail Pattern
 
 The most common filter pattern is a binary Screen -> Detail flow:
 
-1. **Screen** (Switch/Radio): binary or categorical gate question
-2. **Detail** (any type): one or more follow-up items with preconditions
+1. **Screen** (Switch/Radio control): binary or categorical gate question
+2. **Detail** (any control): one or more follow-up items with preconditions
 
 Multiple detail items can share the same precondition — overlapping
 preconditions are normal and acceptable.
@@ -112,9 +117,12 @@ codeInit: |
   consecutive_no = 0
 
 - id: q_interest_1
-  type: Switch
-  label: "Are you interested in topic A?"
-  options: [Yes, No]
+  kind: Question
+  title: "Are you interested in topic A?"
+  input:
+    control: Switch
+    on: "Yes"
+    off: "No"
   codeBlock: |
     if q_interest_1.outcome == 0:
       consecutive_no = consecutive_no + 1
@@ -122,8 +130,12 @@ codeInit: |
       consecutive_no = 0
 
 - id: q_interest_2
-  type: Switch
-  label: "Are you interested in topic B?"
+  kind: Question
+  title: "Are you interested in topic B?"
+  input:
+    control: Switch
+    on: "Yes"
+    off: "No"
   precondition:
     - predicate: consecutive_no < 3
       hint: "Skipped after 3 consecutive negative responses"
@@ -140,8 +152,11 @@ When branching logic becomes complex (3+ conditions), use codeBlock
 items to compute a routing variable, then precondition on that variable:
 
 ```yaml
+# A computation-only step is a Comment item carrying a codeBlock (there is no
+# `codeBlock` item kind — `kind` is one of Comment/Question/QuestionGroup/MatrixQuestion).
 - id: calc_segment
-  type: codeBlock
+  kind: Comment
+  title: "Compute the routing segment"
   codeBlock: |
     if q_age.outcome < 30 and q_income.outcome > 50000:
       segment = 1  # young_affluent
@@ -151,12 +166,18 @@ items to compute a routing variable, then precondition on that variable:
       segment = 0  # general
 
 - id: q_retirement_plan
-  type: Radio
-  label: "What is your primary retirement income source?"
+  kind: Question
+  title: "What is your primary retirement income source?"
   precondition:
     - predicate: segment == 2
       hint: "Retirement questions for respondents aged 65+"
-  options: [Pension, Savings, Social Security, Other]
+  input:
+    control: Radio
+    labels:
+      1: "Pension"
+      2: "Savings"
+      3: "Social Security"
+      4: "Other"
 ```
 
 ## Data Quality Validation
@@ -166,10 +187,14 @@ and follow-up responses:
 
 ```yaml
 - id: q_num_children
-  type: Number
-  label: "How many children under 18 do you have?"
+  kind: Question
+  title: "How many children under 18 do you have?"
   precondition:
     - predicate: q_has_children.outcome == 1
+  input:
+    control: Editbox
+    min: 1
+    max: 20
   postcondition:
     - predicate: q_num_children.outcome >= 1
       hint: "You indicated you have children — please enter at least 1."
@@ -205,21 +230,29 @@ in a codeBlock and precondition all items on that flag:
 
 ```yaml
 - id: calc_eligible
-  type: codeBlock
+  kind: Comment
+  title: "Compute the eligibility flag"
   codeBlock: |
     eligible = 1 if (q_age.outcome >= 18 and q_consent.outcome == 1) else 0
 
 - id: q_detailed_1
-  type: Radio
+  kind: Question
+  title: "..."
   precondition:
     - predicate: eligible == 1
-  ...
+  input:
+    control: Radio
+    labels: { 1: "...", 2: "..." }
 
 - id: q_detailed_2
-  type: Slider
+  kind: Question
+  title: "..."
   precondition:
     - predicate: eligible == 1
-  ...
+  input:
+    control: Slider
+    min: 0
+    max: 10
 ```
 
 This keeps each item self-contained while avoiding repetition of
@@ -332,24 +365,38 @@ Within a spoke module, use sequential gates for sub-topics:
 # Module E: Finance (gated by has_financial_products == 1)
 
 - id: q_has_savings
-  type: Switch
-  label: "Do you have a savings account?"
+  kind: Question
+  title: "Do you have a savings account?"
+  input:
+    control: Switch
+    on: "Yes"
+    off: "No"
   precondition:
     - predicate: has_financial_products == 1
 
 - id: q_has_investments
-  type: Switch
-  label: "Do you have any investment accounts?"
+  kind: Question
+  title: "Do you have any investment accounts?"
+  input:
+    control: Switch
+    on: "Yes"
+    off: "No"
   precondition:
     - predicate: has_financial_products == 1
 
 # Sub-gate: savings details (only if has savings)
 - id: q_savings_amount
-  type: Radio
-  label: "Approximately how much do you have in savings?"
+  kind: Question
+  title: "Approximately how much do you have in savings?"
   precondition:
     - predicate: has_financial_products == 1
     - predicate: q_has_savings.outcome == 1
+  input:
+    control: Radio
+    labels:
+      1: "Under $1,000"
+      2: "$1,000–$10,000"
+      3: "Over $10,000"
 ```
 
 Keep nesting depth to 2-3 levels. Deeper nesting makes the survey
@@ -368,9 +415,10 @@ codeInit: |
   is_homeowner = 0
   household_complexity = 0  # sum of applicable modules
 
-# After screening block:
+# After screening block (a Comment item carrying the computation):
 - id: calc_profile
-  type: codeBlock
+  kind: Comment
+  title: "Compute profile flags"
   codeBlock: |
     is_parent = 1 if q_has_children.outcome == 1 else 0
     is_employed = 1 if q_employment_status.outcome in [1, 2] else 0

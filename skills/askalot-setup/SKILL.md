@@ -107,13 +107,20 @@ spreadsheet-style data pulls), Askalot also issues classic API tokens:
 
 1. Sign in to Profile Settings (links above), click **New API token**.
 2. Give it a descriptive name, copy the `aslat_...` value (shown once).
-3. Use it in REST calls as `Authorization: Bearer aslat_...` or
-   `X-Api-Token: aslat_...`.
+3. Use it in REST calls as the `X-Api-Token: aslat_...` header. Portor's
+   `Authorization: Bearer` path is OAuth-only and will 401 on an API
+   token — API tokens travel exclusively via `X-Api-Token`.
 
 API tokens default to a 90-day lifetime (post-U13 cutover) — Profile
 Settings flags tokens nearing 14 days from expiry with a "rotate
 before <date>" warning. Pre-U13 tokens retain indefinite lifetime
 and can be rotated voluntarily.
+
+This is also the credential to use when you (the agent) generate
+sandboxed code that drives the REST API directly for a mass operation —
+see the `gateway-routing` skill's code-execution guidance for why a
+minted API token, not your live MCP OAuth session token, is the right
+credential for that lane.
 
 Don't paste an API token into the plugin's environment — the OAuth
 flow is the supported path for Claude Code. The token mechanism

@@ -65,7 +65,7 @@ answers each goal:
 
 1. Read the current brief and the project's QML (use the brief read +
    `inspect_qml_file` / `get_qml_content` tools you already have).
-2. Build `goals_association`: one entry per `RQ-*`/`SC-*`/`REQ-*`:
+2. Build `goals_association`: one entry per `RQ-*`/`KPI-*`/`SC-*`/`REQ-*`:
    `{goal_id, qml_refs:[...], data_refs:[...], confidence:0–1,
    rationale, coverage:"full"|"partial"}`. Use `coverage:"partial"` when
    only some sub-questions of the goal are covered — never collapse a

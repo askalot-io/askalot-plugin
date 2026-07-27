@@ -424,12 +424,11 @@ The `codeInit` section runs before any blocks or items are processed. Use it to:
 ```yaml
 questionnaire:
   codeInit: |
-    # Initialize variables
+    # Initialize routing/accumulator variables only. Do NOT pre-set an item's
+    # outcome here — an outcome is produced by the respondent's answer (or a
+    # later codeBlock that derives it), never seeded before the item runs.
     total_score = 0
     category = "standard"
-
-    # Pre-initialize outcomes (advanced)
-    q_default_age.outcome = 25  # Pre-fill an item's outcome
 ```
 
 #### 6.3 Item-Level Code Blocks
@@ -494,7 +493,7 @@ Code blocks are statically analyzed by the Z3 SMT solver. **Only use features li
 - **`range(n)`**: Creates sequence from 0 to n-1 (n must be ≤20)
 - **`int(expr)`**: Explicit cast (bool → int)
 - **`bool(expr)`**: Explicit cast (int → bool, where 0=False)
-- **No other built-in functions** — `len`, `sum`, `max`, `min`, `abs`, `sorted`, `append`, etc. all return 0 in the solver
+- **In imperative code blocks, prefer explicit arithmetic** — `sum`, `len`, `max`, `min`, `abs`, `sorted`, `append` etc. are not lowered when used to *compute a code-block variable*, so a `total = sum([...])` in a codeBlock is invisible to the solver. **This does NOT apply to matrix postconditions:** the canonical *folded shapes* over matrix cells (`sum([...]) == K`, `len(set([...])) == N`, `all([...])`/`any([...])` over comprehensions with **literal** range bounds) ARE lowered to Z3 and verified — see `matrix-constraint-patterns.md`. Don't avoid them.
 
 #### 6.5 NOT Supported in Code Blocks
 
@@ -507,18 +506,34 @@ def calculate(): pass          # No function definitions
 class MyClass: pass            # No class definitions
 ```
 
-**Invisible to solver (silently returns 0 — never use):**
+**Always forbidden — genuinely no Z3 model, never use anywhere:**
 ```python
-my_list.append(value)          # No method calls
-len(my_list)                   # No built-in functions (except range, int, bool)
-sum(values)                    # Returns 0 in solver
-max(a, b)                      # Returns 0 in solver
-[x*2 for x in range(5)]       # No list comprehensions
+my_list.append(value)          # No method calls (.append/.upper/.index ...)
 lambda x: x*2                  # No lambda functions
 data = {}                      # No dictionaries
 name.upper()                   # No string operations
-arr[0]                         # No subscript access (use item.outcome directly)
 ```
+
+**Code-block-only restriction — works at runtime but NOT lowered when computing
+a code-block variable (use explicit arithmetic instead):**
+```python
+total = sum(values)            # In a codeBlock: use q1.outcome + q2.outcome + ...
+count = len(my_list)           # In a codeBlock: no length model
+result = [x*2 for x in range(5)]   # In a codeBlock: unroll by hand
+```
+
+**BUT the canonical FOLDED SHAPES over matrix cells ARE verified — in
+POSTCONDITIONS (see `matrix-constraint-patterns.md`):**
+```python
+sum([m.outcome[0][k] for k in range(4)]) == 100     # verified (z3.Sum)
+len(set([m.outcome[j][0] for j in range(3)])) == 3  # verified (Distinct, K == N)
+all([m.outcome[j][k] >= 1 for j in range(3) for k in range(4)])  # verified (And)
+```
+Runtime-only (fall back to a `coverage_gap`, not verified): `min`/`max` folds,
+non-literal range bounds (`range(j+1, 4)`), partial distinctness
+(`len(set(...)) == K` with `K < N`), runtime-bound totals (`== q_target.outcome`),
+and any fold over a **QuestionGroup** vector (`qg.outcome[i]` has no per-question
+Z3 model — see §9.3).
 
 **Unsupported control flow:**
 ```python
@@ -993,7 +1008,11 @@ While QML doesn't support dynamic text interpolation directly, you can use Comme
 ```
 
 #### 9.3 Aggregating QuestionGroup Responses
-Since `sum()` and `len()` are not available in the Z3-verifiable subset, compute totals manually using explicit addition:
+A **QuestionGroup** carries a single scalar Z3 var — its per-question outcomes
+(`q_service_ratings.outcome[i]`) have **no per-question model** in the solver, so
+any aggregation over them (whether `sum([...])` or explicit `outcome[0] +
+outcome[1] + ...`) is **runtime-only**, not statically verified. Compute the
+total explicitly and rely on runtime enforcement:
 ```yaml
 - id: q_service_ratings
   kind: QuestionGroup
@@ -1003,7 +1022,8 @@ Since `sum()` and `len()` are not available in the Z3-verifiable subset, compute
     - "Quality"
     - "Support"
   codeBlock: |
-    # Sum ratings explicitly (Z3 can verify this)
+    # Runtime-only: the per-question outcomes are not modelled in Z3, so the
+    # solver treats total_rating as unconstrained (a coverage gap, not a proof).
     total_rating = q_service_ratings.outcome[0] + q_service_ratings.outcome[1] + q_service_ratings.outcome[2]
 
     # Categorize based on total (3 questions, scale 1-5, so range 3-15)
@@ -1023,7 +1043,12 @@ Since `sum()` and `len()` are not available in the Z3-verifiable subset, compute
       5: "Excellent"
 ```
 
-**Why not `sum()` / `len()`?** These built-in functions are not part of the Z3-verifiable subset. They execute at runtime but return `0` in static analysis, making any logic that depends on them invisible to the solver.
+**QuestionGroup vs Matrix.** This runtime-only limitation is specific to
+QuestionGroup vector outcomes. A **`MatrixQuestion`** DOES model each cell
+(`m.outcome[j][k]`), so the canonical folded shapes over its cells — `sum([...])
+== K`, `len(set([...])) == N`, `all([...])` with literal range bounds — **are
+Z3-verified** (see `matrix-constraint-patterns.md`). If you need a statically
+verified aggregate, model the items as a matrix, not a QuestionGroup.
 
 ### 10. Testing and Validation Guidelines
 

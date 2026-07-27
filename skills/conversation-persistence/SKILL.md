@@ -1,6 +1,6 @@
 ---
 name: conversation-persistence
-description: Use when driving a brief-aware orchestration flow (design-questionnaire, run-campaign-simulation, analyze-quality) to persist the turn's events back to the project's `project_conversations` row via the start_run / append_conversation_event / end_run MCP tools. Covers the event shape, the dedup contract, and the per-run event cap.
+description: Use when driving the Manager (run-campaign-simulation) or Analyst (analyze-quality) orchestration flow to persist the turn's events back to the project's `project_conversations` row via the start_run / append_conversation_event / end_run MCP tools. NOT for the Designer (design-questionnaire) — the Armiger host writes that timeline in-process. Covers the event shape, the dedup contract, and the per-run event cap.
 ---
 
 # Conversation Persistence

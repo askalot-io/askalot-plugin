@@ -102,7 +102,7 @@ peer-reviewed textbooks and papers covering:
   Tourangeau (psychology of response), Bradburn, Oppenheim
 - Total Survey Error, quality, and costs — Groves (by reference via
   chapters in Marsden & Wright), de Leeuw/Hox/Dillman
-- Sampling and weighting — Bethlehem & Biffignandi, Heeringa et al.
+- Sampling and weighting — Saris & Gallhofer, Heeringa et al.
 - Adaptive design, R-indicators — Schouten, Calinescu, Cobben
 - Satisficing and response quality — Krosnick & Presser (chapter)
 - Validity & reliability — Taherdoost, Aithal & Aithal

@@ -1,6 +1,6 @@
 ---
 name: sampling-theory
-description: Use when advising on sampling design (SRS, stratified, cluster, multi-stage), sample-size determination, weighting fundamentals (design weights, nonresponse adjustment, post-stratification, raking), design effect (DEFF) interpretation, or why a naive standard error underestimates uncertainty under complex samples. Distilled from Heeringa, West & Berglund (2010) "Applied Survey Data Analysis" and Bethlehem & Biffignandi (2012). Cites Kish (1965) where load-bearing.
+description: Use when advising on sampling design (SRS, stratified, cluster, multi-stage), sample-size determination, weighting fundamentals (design weights, nonresponse adjustment, post-stratification, raking), design effect (DEFF) interpretation, or why a naive standard error underestimates uncertainty under complex samples. Distilled from Heeringa, West & Berglund (2010) "Applied Survey Data Analysis" and Saris & Gallhofer (2007, library id bethlehem2012design). Cites Kish (1965) where load-bearing.
 ---
 
 # Sampling Theory — Practitioner Reference

@@ -363,11 +363,11 @@ mapping to ground your advice in what can actually be measured.
 
 | Theoretical Concept | Platform Equivalent | MCP Tool |
 |---|---|---|
-| Sample representativeness | RMSE, MAE, Chi-Square, Max Deviation vs. strategy targets | `get_dataset_quality` |
-| Weighting effectiveness | Bronze vs Silver quality comparison | `compare_dataset_quality` |
-| Design effect (DEFF) | 1 + CV²(weights), included in weighting diagnostics | `apply_raking` → diagnostics |
+| Sample representativeness | RMSE, MAE, Chi-Square, Max Deviation (three-measure story: fielded vs Strategy, weighted vs Calibration Targets, response quality) | `get_bundle_quality` |
+| Weighting effectiveness | Bronze vs Silver quality comparison for the Bundle's chain | `compare_bundle_quality` |
+| Design effect (DEFF) | 1 + CV²(weights), included in weighting diagnostics | `code_open_ends` → Silver raking diagnostics |
 | Effective sample size | n / DEFF | Included in weighting diagnostics |
-| Response quality | Entropy, straightlining, Cronbach's alpha, speeder detection | `get_dataset_response_quality` |
+| Response quality | Entropy, straightlining, Cronbach's alpha, speeder detection | `get_bundle_quality` (Response Quality measure) |
 | Strategy factor design | Demographic factors with target distributions | `create_sampling_strategy` |
 | Pool generation | Greedy (error-minimizing) or random constrained (quota-based) selection | `generate_pool_from_strategy` |
 
@@ -386,7 +386,7 @@ mapping to ground your advice in what can actually be measured.
 When advising on campaign design without adaptive optimization tools:
 1. **Over-sample hard-to-reach groups** by 20-30% using `oversample_factor` in strategy
 2. **Use greedy selection** (`selection_algorithm: greedy`) to maximize initial representativeness
-3. **Check quality at milestones** (25%, 50%, 75% completion) via `get_dataset_quality`
+3. **Check quality at milestones** (25%, 50%, 75% completion) via `get_bundle_quality`
 4. **Apply raking** post-collection to correct residual imbalances
 5. **Report DEFF** alongside sample size so the user understands effective precision
 

@@ -17,8 +17,9 @@ You delegate to two specialist sub-agents:
 - **Quality Analyst** — statistical analysis of representativeness, weighting,
   response quality, and improvement recommendations
 - **Research Evaluator** — evaluates whether the campaign data answers the
-  Research Brief's research questions (RQ-*), meets success criteria (SC-*),
-  and covers requirements (REQ-*)
+  Research Brief's research questions (RQ-*), computes the concluding
+  metrics (KPI-*), meets success criteria (SC-*), and covers
+  requirements (REQ-*)
 
 ## Your sub-agents (dispatch names)
 
@@ -154,6 +155,8 @@ For a free-form evaluation, present your unified report as:
 
 ### 1. Research Goal Assessment
 - For each RQ-*: Can it be answered? What does the data show?
+- For each KPI-*: Was the value computed per its Definition? Open-collection
+  KPIs: were the responses coded/clustered (see `semantic_clustering_candidates`)?
 - For each SC-*: Was it met?
 - Overall: Are the research goals achievable from this dataset?
 

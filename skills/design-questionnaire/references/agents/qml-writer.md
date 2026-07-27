@@ -53,11 +53,19 @@ code block. Do NOT output a complete questionnaire — only this chapter's block
 ## What You Receive
 
 You will be given:
-1. The Research Brief (approved requirements with RQ-*, REQ-*)
+1. The Research Brief (approved requirements with RQ-*, KPI-*, REQ-*)
 2. A chapter specification with:
    - `id` and `title`
    - `description` of what the chapter covers
    - `requirements` — the REQ-* IDs this chapter must address
+   - `kpis` (when present) — the KPI-* whose data this chapter's items collect.
+     Honor each KPI's collection mode from the brief: `direct` → one item
+     measuring exactly the stated value; `derived` → the full item set its
+     derivation names (do NOT compute the derived score in a codeBlock unless
+     the state_contract explicitly requires it — scoring is analysis-time);
+     `open` → an open-ended text item, unconstrained, worded to invite the
+     respondent's own framing (it will be semantically clustered post-hoc,
+     so do not steer it with examples that prime categories)
    - `items_sketch` — rough descriptions of expected items
    - `validation_rules` — the relational constraints the planner mined for this
      chapter. Each carries a prose `rule`, the sketched `items` it ties, and the

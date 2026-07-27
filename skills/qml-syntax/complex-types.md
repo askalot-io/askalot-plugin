@@ -24,22 +24,22 @@ and codeBlock for dynamic logic.
         min: 1
         max: 10
       codeBlock: |
-        aspect_names = ["Work-life", "Compensation", "Career", "Management", "Environment"]
-        problem_areas = [aspect_names[i] for i in range(5)
-                       if job_aspects.outcome[i] < 5]
+        # Supported subset only: int() casts + explicit addition. A code block
+        # CANNOT build lists of strings, use len()/comprehensions, or format
+        # messages (f-strings / print) — those are invisible to the sandbox.
+        # Count how many aspects were rated below 5, for downstream routing.
+        problem_count = (int(job_aspects.outcome[0] < 5) + int(job_aspects.outcome[1] < 5)
+                         + int(job_aspects.outcome[2] < 5) + int(job_aspects.outcome[3] < 5)
+                         + int(job_aspects.outcome[4] < 5))
 
-    # Conditional follow-up when any aspect rated below 5
+    # Conditional follow-up when any aspect rated below 5. Presentation (which
+    # areas, phrased as prose) is the UI's job, not a code block — the item is
+    # simply gated on the precondition.
     - id: followup_needed
       kind: Comment
       title: "Additional feedback needed"
       precondition:
         - predicate: any([job_aspects.outcome[j] < 5 for j in range(5)])
-      codeBlock: |
-        count = len(problem_areas)
-        message = f"We identified {count} areas needing improvement:\n"
-        for area in problem_areas:
-          message += f"- {area}\n"
-        print(message)
 
     # Allocate 100 points with sum constraint
     - id: improvement_allocation
@@ -93,12 +93,6 @@ sum constraint, allocation pattern.
         control: Editbox
         min: 0
         max: 100
-      codeBlock: |
-        best_per_attribute = []
-        for col in range(6):
-          scores = [product_comparison.outcome[row][col] for row in range(4)]
-          best_idx = scores.index(max(scores))
-          best_per_attribute.append(best_idx)
 
     # Precondition on matrix aggregation
     - id: perfect_product
@@ -116,24 +110,19 @@ sum constraint, allocation pattern.
           3: "Exceptional value"
           4: "Other reason"
 
-    # Summary using codeBlock with derived data
+    # A closing Comment. Note there is NO codeBlock building a summary string:
+    # argmax (scores.index(max(scores))), list building, and f-string / print
+    # formatting are all outside the supported subset — presentation belongs to
+    # the UI, not a code block.
     - id: best_summary
       kind: Comment
       title: "Analysis complete"
-      codeBlock: |
-        products = ["SmartPhone X", "SmartPhone Y", "SmartPhone Z", "SmartPhone W"]
-        attributes = ["Battery", "Screen", "Camera", "Performance", "Build", "Value"]
-        summary = "Best products by attribute:\n"
-        for i in range(6):
-          best_prod = products[best_per_attribute[i]]
-          score = product_comparison.outcome[best_per_attribute[i]][i]
-          summary += f"- {attributes[i]}: {best_prod} (score: {score})\n"
-        print(summary)
 ```
 
 **Patterns shown:** MatrixQuestion with rows/columns, precondition on matrix
-aggregation (`all(... for k) for j`), codeBlock iterating over matrix cells,
-derived state passed between items.
+aggregation (`all(... for k) for j` — a verified fold over matrix cells).
+Presentation logic (which product won each attribute) is intentionally NOT a
+code block — it is outside the supported subset.
 
 ## Example 3: Combined Types with Inter-Item Dependencies
 
@@ -204,22 +193,22 @@ derived state passed between items.
       kind: Question
       title: "Rate improvement priority for the weakest attribute"
       precondition:
+        # Dynamic index (best_product.outcome-1) is a runtime value, so this
+        # min-fold is runtime-enforced only (a coverage_gap), not Z3-verified.
         - predicate: |
             min([product_ratings.outcome[best_product.outcome-1][j]
                  for j in range(3)]) < 4
-      codeBlock: |
-        prod_idx = best_product.outcome - 1
-        scores = [product_ratings.outcome[prod_idx][j] for j in range(3)]
-        weakest_idx = scores.index(min(scores))
-        attr_names = ["Price", "Quality", "Service"]
-        print(f"The weakest attribute is: {attr_names[weakest_idx]} (score: {scores[weakest_idx]})")
       input:
         control: Slider
         min: 1
         max: 10
 ```
 
+Note there is no codeBlock finding the weakest attribute for display: argmin
+(`scores.index(min(scores))`), string lists, and f-string / print formatting are
+outside the supported subset. Presentation is the UI's job.
+
 **Patterns shown:** MatrixQuestion + QuestionGroup + Question combined,
 precondition using matrix row sums, postcondition enforcing permutation
-(unique ranks), precondition with dynamic index (`outcome[best_product.outcome-1][j]`),
-multi-level dependencies (I2 depends on I1, I3 on I2, I4 on I1+I2).
+(unique ranks), precondition with dynamic index (`outcome[best_product.outcome-1][j]`,
+runtime-only), multi-level dependencies (I2 depends on I1, I3 on I2, I4 on I1+I2).
