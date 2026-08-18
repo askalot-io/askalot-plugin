@@ -1,6 +1,6 @@
 # Response-Level Quality Metrics Reference
 
-This document describes the response quality metrics — the Response Quality measure of `get_bundle_quality`'s three-measure story. These metrics evaluate the **measurement quality** of survey responses — complementing representativeness metrics (RMSE, Chi-Square) which evaluate sampling quality.
+This document describes the response quality metrics — the `response` measure of `get_bundle_quality`'s Representativeness story, and the only one of its measures with no referent to grade against. These metrics evaluate the **measurement quality** of survey responses, complementing the four representativeness measures (RMSE, Chi-Square against a Strategy or a Pool) which evaluate sampling quality.
 
 ## Relationship to Total Survey Error
 

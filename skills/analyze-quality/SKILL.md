@@ -1,6 +1,6 @@
 ---
 name: analyze-quality
-description: Use to evaluate a completed survey campaign — statistical data quality (representativeness, weighting, response quality) and research-goal answerability against the Research Brief — and synthesize both into a unified verdict. Orchestrates quality-analyst and research-evaluator sub-agents.
+description: Use to evaluate a completed survey campaign — statistical data quality (representativeness, weighting, response quality) and research-goal answerability against the research paper — and synthesize both into a unified verdict. Orchestrates quality-analyst and research-evaluator sub-agents.
 ---
 
 # Analyze Quality
@@ -17,7 +17,7 @@ You delegate to two specialist sub-agents:
 - **Quality Analyst** — statistical analysis of representativeness, weighting,
   response quality, and improvement recommendations
 - **Research Evaluator** — evaluates whether the campaign data answers the
-  Research Brief's research questions (RQ-*), computes the concluding
+  research paper's research questions (RQ-*), computes the concluding
   metrics (KPI-*), meets success criteria (SC-*), and covers
   requirements (REQ-*)
 
@@ -26,7 +26,7 @@ You delegate to two specialist sub-agents:
 Delegate via the **Agent** tool, by these exact names:
 
 - `quality-analyst` — statistical data-quality assessment.
-- `research-evaluator` — research-goal answerability against the brief; it
+- `research-evaluator` — research-goal answerability against the paper; it
   sources its verdict from the shared answerability chain (the post-collection
   case of the same relationship), not an independent parallel computation.
 
@@ -84,7 +84,7 @@ auto-remediates. See the `answerability-chain` skill.
 ## RAG Grounding (mandatory)
 
 You have two RAG corpora available through Askalot MCP tools. Search them
-before drafting any substantive output (a brief section, a chapter plan,
+before drafting any substantive output (a paper chapter, a chapter plan,
 QML, an assessment, an evaluation).
 
 1. **Project documents** — the customer's source material indexed for this
@@ -126,11 +126,11 @@ QML, an assessment, an evaluation).
    analyst returns a statistical quality assessment grounded in those injected
    numbers.
 
-2. **Delegate to `research-evaluator` — only when a Research Brief is present**
-   in your task context. Pass the dataset alongside the Research Brief; the
+2. **Delegate to `research-evaluator` — only when a research paper is present**
+   in your task context. Pass the dataset alongside the research paper; the
    evaluator returns a research goal assessment sourced from the shared
    answerability chain (the post-collection case of the same relationship),
-   not an independent parallel computation. **When no Research Brief is
+   not an independent parallel computation. **When no research paper is
    present, skip this delegation** and produce a data-quality-only report.
 
 3. **Synthesize** — combine both assessments into a unified report:
@@ -143,13 +143,14 @@ QML, an assessment, an evaluation).
 
 ## Report Structure
 
-**When your task prompt specifies an explicit report structure and required
-output blocks** (as the quality-analysis task does, with its own sections and
-a mandatory fenced `brief_proposal` block), follow that structure exactly — it
-governs the final report, and the default below applies to free-form
-evaluations only. When a fenced output block is required, emit it **verbatim as
-the last element of your response**; do not let a synthesis turn reflow,
-summarize, or pretty-print it, or the downstream extractor cannot parse it.
+**When your task prompt specifies an explicit output structure and required
+output blocks** (as the quality-analysis task does, with its fenced `paper_unit`
+chapter blocks and a mandatory fenced `brief_proposal` block), follow that
+structure exactly — it governs the final output, and the default below applies
+to free-form evaluations only. Every required fenced block is emitted
+**verbatim**, with the `brief_proposal` block last; do not let a synthesis turn
+reflow, summarize, or pretty-print any of them, or the downstream extractor
+cannot parse them.
 
 For a free-form evaluation, present your unified report as:
 
@@ -187,22 +188,37 @@ For a free-form evaluation, present your unified report as:
   `validity-reliability`, and `data-quality` skills cover the common
   cases; the library carries the long tail.
 
-## Recording outcomes in the brief
+## Recording outcomes in the paper
 
-You do **not** have anchored brief-edit tooling (`read_brief` / `edit_brief`)
-in your allowlist this round — wiring it is a deferred follow-up. Your
-outcomes/conclusions path is the fenced `brief_proposal` block (see *Report
-Structure* and *Two-tier output*): when your task prompt requires it, emit the
-block verbatim and the SaaS pipeline lands it via Balansor's
-`create_proposal` / `approve_proposal` review gate. Do not attempt anchored
-`edit_brief` calls — that tooling is not available to you.
+`edit_paper_unit` is **denied to you**, and that is deliberate rather than
+pending: a run the researcher cancels must overwrite nothing, and the host
+writing your output *after* the run terminates is what makes that guarantee
+structural rather than a promise. Do not attempt anchored `edit_paper_unit`
+calls — the tool is not reachable from this flow and the attempt only costs you
+a turn.
+
+`read_paper` **is** available, and you should use it: the project's paper
+carries the goals, the instrument and the sampling plan your assessment is
+judged against. Reading cannot land a write a cancel would have to undo.
+
+Your two outcome paths are both fenced blocks in your response (see *Report
+Structure* and *Two-tier output*):
+
+- **`paper_unit` blocks** — the chapters your task prompt names. The host
+  extracts them, checks them against the paper's HTML allowlist, and writes
+  them into the research paper server-side. A fragment the allowlist refuses
+  fails the run and names what it rejected, so emit well-formed markup.
+- **the `brief_proposal` block** — the one chapter that goes through the
+  researcher's review gate, landed by Balansor's `create_proposal` /
+  `approve_proposal` path.
 
 ## Two-tier output
 
 The **full artifact is the report you produce** (and, where the task requires
-it, the fenced `brief_proposal` block the downstream extractor parses) plus the
-conversation timeline via the persistence calls above. When a fenced block is
-required, it must be the verbatim last element of your response. Lead the
+it, the fenced blocks the downstream extractors parse — the `paper_unit`
+chapters the host writes into the research paper, and the `brief_proposal` the
+researcher reviews) plus the conversation timeline via the persistence calls
+above. Required fenced blocks are emitted verbatim, `brief_proposal` last. Lead the
 customer-facing reply with a **compact verdict** — is the campaign complete,
 are the goals answerable, what's missing — rather than restating every metric;
 the detailed evidence lives in the report body. A synthesis that claims a
@@ -213,6 +229,6 @@ plugin.** The Balansor extractor that turns a fenced `brief_proposal` into a
 durable brief proposal runs only in the hosted Askalot runtime. When you are
 driven outside it (an external Claude Code / Claude Desktop session that has
 no Balansor extractor), still deliver the full verdict in prose, but **say
-plainly that the brief proposal was not persisted** — do not imply the brief
+plainly that the paper proposal was not persisted** — do not imply the paper
 was updated when nothing consumed the block. Never present an unpersisted
 proposal as a landed brief change.

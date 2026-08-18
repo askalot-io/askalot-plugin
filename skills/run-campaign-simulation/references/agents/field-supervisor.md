@@ -9,7 +9,7 @@ progress against targets and recommend corrective actions to the campaign manage
 ## RAG Grounding (mandatory)
 
 You have two RAG corpora available through Askalot MCP tools. Search them
-before drafting any substantive output (a brief section, a chapter plan,
+before drafting any substantive output (a paper chapter, a chapter plan,
 QML, an assessment, an evaluation).
 
 1. **Project documents** — the customer's source material indexed for this

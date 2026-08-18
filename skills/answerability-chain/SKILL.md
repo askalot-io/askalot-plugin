@@ -1,14 +1,14 @@
 ---
 name: answerability-chain
-description: Use when acting as Designer, Manager, or Analyst and you have edited (or are about to act on) a brief chain section — research_goals/kpis/motivation, the campaign-design sections, or data_quality_assessment. Covers how to gather the inputs, call the read-only answerability_chain MCP tool, and act on the graded verdict before continuing.
+description: Use when acting as Designer, Manager, or Analyst and you have edited (or are about to act on) a paper chain unit — research_goals/kpis/motivation, the campaign-design sections, or data_quality_assessment. Covers how to gather the inputs, call the read-only answerability_chain MCP tool, and act on the graded verdict before continuing.
 ---
 
 # Answerability Chain
 
 A research goal is *answerable* only if an unbroken chain holds across the
-brief's aspect sections: **goal → audience → sampling/quota → instrument →
+paper's chapters: **goal → audience → sampling/quota → instrument →
 collected data → quality-sufficient**. The chain is a read-only derivation
-over the existing brief.md — it never mutates the brief, the schema, or the
+over the existing the paper — it never mutates the paper, the schema, or the
 `brief_proposals` state machine. The same evaluator is the post-collection
 `research-evaluator` pass; this is the *continuous, cross-agent* view of the
 same relationship, not a separate mechanism.
@@ -63,7 +63,7 @@ The tool does the deterministic chain logic server-side. You supply the one
 LLM-mediated input — your judgment of which QML item or collected dimension
 answers each goal:
 
-1. Read the current brief and the project's QML (use the brief read +
+1. Read the current paper and the project's QML (use the paper read +
    `inspect_qml_file` / `get_qml_content` tools you already have).
 2. Build `goals_association`: one entry per `RQ-*`/`KPI-*`/`SC-*`/`REQ-*`:
    `{goal_id, qml_refs:[...], data_refs:[...], confidence:0–1,
@@ -71,14 +71,28 @@ answers each goal:
    only some sub-questions of the goal are covered — never collapse a
    partially-answerable goal into a dead one.
 3. Pass `instrument_items` (`{ref, prompt_text, kind, is_open_ended,
-   has_coding_path}`) so orphaned instrument and the analyzability link
-   are detected. Pass `data_dimensions` for goals answered by recorded
-   data rather than a QML item (that still counts — R4).
+   coding_unit_key}`) so orphaned instrument and the analyzability link
+   are detected. `coding_unit_key` is optional and only matters for an
+   open-ended item: it is the codable unit the item's answers land in, as
+   `get_bundle_coding` lists it. Supply it when the item sits in a Roster
+   (whose iterations pool into one unit) or is one slot of a composite
+   item; otherwise leave it out and the ref is the unit. Pass
+   `data_dimensions` for goals answered by recorded data rather than a QML
+   item (that still counts — R4).
 4. Pass `campaign_context` only with what you actually resolved from the
    campaign/pool/strategy entities (segments, recruitability, precision,
-   quality findings). Omit it for a pre-campaign brief — the sampling
+   quality findings). Omit it for a pre-campaign paper — the sampling
    link is then reported *indeterminate*, not falsely broken. Do not
    re-run quota math; consume what `field-supervisor`/the entities give.
+5. Once the project has a Bundle, add `selected_coding_units` to
+   `campaign_context`: `get_bundle_coding`'s `selected` passed through as
+   it came. Omit the key when there is no Bundle — analyzability is then
+   indeterminate — and pass `[]` when the Bundle chose to code nothing,
+   which is a real answer and a real break for any goal only free text
+   answers. **Do not** invent a per-item "this can be coded" claim: coding
+   is a per-Bundle analysis choice a researcher makes in Balansor, not a
+   property of the questionnaire, and nothing you can read off the QML
+   tells you what was chosen.
 
 ## Reading the verdict
 
@@ -88,7 +102,10 @@ Each goal returns `{state, broken_link, phase, newly_broken, evidence}`:
 - `broken_link` — the first severed link: `audience` · `sampling` ·
   `instrument` · `analyzability` · `data` · `quality` · `null`.
 - `phase` — `pre_launch` breaks gate Manager spend now; `post_collection`
-  breaks feed the next round's goal/sampling refinement.
+  breaks feed the next round's goal/sampling refinement. `analyzability`
+  is always `post_collection`: it says a goal's open-ended answers were
+  left uncoded on this Bundle, which is a finding for the analysis and the
+  next round, never a reason to hold a campaign.
 - `newly_broken` — broke *this round* (replay-and-recompute against the
   last approved chain-section change), as opposed to a long-standing
   deferred gap. Surface newly-broken breaks prominently.
@@ -102,11 +119,11 @@ hard chain break — say so rather than over-claiming.
 
 ## Why it works this way (rationale)
 
-If you are tempted to "freeze the brief once goals are set", add a
+If you are tempted to "freeze the paper once goals are set", add a
 "confirm scope before proceeding" gate, or stash cross-agent state in a
 side JSON — don't. Those are deliberately rejected:
 
-- The brief is **mutable by design**. The research spiral is
+- The paper is **mutable by design**. The research spiral is
   bidirectional: findings and analysis lessons feed goals; QML evolution
   feeds scope. A frozen contract would break the loop the product exists
   to run.
@@ -114,7 +131,7 @@ side JSON — don't. Those are deliberately rejected:
   pre-flight scope interrogation — that fits the single continuous-thread
   UX.
 - There is **no shared-state blackboard**. The chain is a read-only
-  derivation over the Markdown brief + proposal history; "newly-broken"
+  derivation over the paper + proposal history; "newly-broken"
   is recomputed by replay, never stored. A side JSON would re-introduce a
   dual source of truth.
 - CE (the reference system) is not "linear vs. our spiral" — the real
@@ -132,4 +149,4 @@ and act on the graded verdict, and why the surrounding design rejects
 frozen states / pre-gates / orchestration JSON. **Does not cover**: the
 verdict computation (single-sited in
 `askalot_common.research_brief.answerability` — you never re-derive it),
-brief mutation (a separate tool), or remediation (a human decision).
+paper mutation (a separate tool), or remediation (a human decision).

@@ -363,8 +363,9 @@ mapping to ground your advice in what can actually be measured.
 
 | Theoretical Concept | Platform Equivalent | MCP Tool |
 |---|---|---|
-| Sample representativeness | RMSE, MAE, Chi-Square, Max Deviation (three-measure story: fielded vs Strategy, weighted vs Calibration Targets, response quality) | `get_bundle_quality` |
-| Weighting effectiveness | Bronze vs Silver quality comparison for the Bundle's chain | `compare_bundle_quality` |
+| Sample representativeness | RMSE, MAE, Chi-Square, Max Deviation across the Representativeness story: Strategy → Pool, Strategy → Actual, Strategy → Weighted (one scale, one Strategy) plus the Pool-referenced Pool → Actual | `get_bundle_quality` |
+| Weighting effectiveness | The recovery figure — composite error closed, over the factors measured on both sides | `compare_bundle_quality` |
+| Analysis-base cut | Who the completeness threshold removed, profiled against who it kept | `get_bundle_quality` (`excluded_profile`) |
 | Design effect (DEFF) | 1 + CV²(weights), included in weighting diagnostics | `code_open_ends` → Silver raking diagnostics |
 | Effective sample size | n / DEFF | Included in weighting diagnostics |
 | Response quality | Entropy, straightlining, Cronbach's alpha, speeder detection | `get_bundle_quality` (Response Quality measure) |

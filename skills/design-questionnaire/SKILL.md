@@ -1,6 +1,6 @@
 ---
 name: design-questionnaire
-description: Use to design a survey questionnaire end-to-end — research reference documents into a Research Brief, plan chapters, generate and Z3-validate QML, and save it. Orchestrates research/planning/writing sub-agents and maintains the project brief.
+description: Use to design a survey questionnaire end-to-end — research reference documents into a research paper, plan chapters, generate and Z3-validate QML, and save it. Orchestrates research/planning/writing sub-agents and maintains the project brief.
 ---
 
 # Design Questionnaire
@@ -10,8 +10,8 @@ through validated QML output. You work conversationally with the customer,
 delegating specialist work to your sub-agents:
 
 - **Research Assistant** — analyzes reference documents, identifies research goals,
-  produces a structured Research Brief with RQ-*, KPI-*, SC-*, REQ-*
-- **QML Planner** — decomposes the Research Brief into an ordered chapter plan
+  produces a structured research paper with RQ-*, KPI-*, SC-*, REQ-*
+- **QML Planner** — decomposes the research paper into an ordered chapter plan
 - **QML Writer** — generates QML YAML for one chapter at a time
 - **Design Reviewer** — audits a saved, error-free questionnaire's design
   quality and returns the scorecard report you act on before presenting
@@ -27,14 +27,14 @@ Delegate via the **Agent** tool. The sub-agents are generic, stateless, and
 seeded from this skill's persona reference assets — dispatch them by these
 exact names:
 
-- `research-assistant` — reference-document analysis + Research Brief drafting.
-- `qml-planner` — Research Brief → ordered chapter plan (structural only).
+- `research-assistant` — reference-document analysis + research paper drafting.
+- `qml-planner` — research paper → ordered chapter plan (structural only).
 - `qml-writer` — one chapter's QML YAML at a time.
 - `design-reviewer` — post-save quality scorecard report (read-only auditor).
 
 Each sub-agent is a leaf: it does its one job and returns. It does not dispatch
 further sub-agents, and it does not own the conversation — you do. Pass each the
-context it needs (the customer's ask, the Research Brief, previously generated
+context it needs (the customer's ask, the research paper, previously generated
 QML) in the dispatch prompt; they do not share your memory.
 
 ## Long-running chat (one project, many questionnaires)
@@ -42,8 +42,8 @@ QML) in the dispatch prompt; they do not share your memory.
 A project's chat is **one continuous thread** — there is no "research
 phase" vs "design phase" anymore. The same conversation can:
 
-- *Extend the brief with a new topic* — ``read_brief`` the relevant
-  section, then ``edit_brief`` with an anchored change. The brief grows
+- *Extend the paper with a new topic* — ``read_paper`` the relevant
+  section, then ``edit_paper_unit`` with an anchored change. The brief grows
   by accretion as the customer's research scope evolves; you never start
   over and you never wholesale-overwrite a section you have not read.
 - *Generate the first QML questionnaire* for a topic — delegate to
@@ -54,7 +54,7 @@ phase" vs "design phase" anymore. The same conversation can:
   output before saving.
 - *Create a second questionnaire* on a different topic from the same
   brief, or a revised version for a follow-up campaign — same flow as
-  the first, but the brief context is already populated.
+  the first, but the paper context is already populated.
 - *Validate one or more existing questionnaires on demand* — call
   ``validate_qml_file`` and surface any errors with concrete fixes
   (don't just paste the validator output).
@@ -90,7 +90,7 @@ customer decides. See the `answerability-chain` skill.
 ## RAG Grounding (mandatory)
 
 You have two RAG corpora available through Askalot MCP tools. Search them
-before drafting any substantive output (a brief section, a chapter plan,
+before drafting any substantive output (a paper chapter, a chapter plan,
 QML, an assessment, an evaluation).
 
 1. **Project documents** — the customer's source material indexed for this
@@ -132,19 +132,19 @@ dispatch prompt.
 
 Use it proactively — not only when the customer asks — whenever the two
 RAG corpora leave a gap that current external facts would fill while you
-shape the research goal or the brief:
+shape the research goal or the paper:
 
 - current regulations, deadlines, or regulator guidance newer than the
   uploaded documents;
 - published benchmarks, industry standards, or competing frameworks worth
-  offering the customer as *options* in the brief (goal candidates, named
+  offering the customer as *options* in the paper (goal candidates, named
   scales, KPI conventions for the domain);
 - domain facts the project corpus is silent on and the customer seems
   unsure about.
 
 Rules: web findings **supplement** the two corpora, never replace the
 mandatory searches; methodology questions still go to the methodology
-library, not the web. Record used web sources in the brief's
+library, not the web. Record used web sources in the paper's
 `source_references` section (URL + one-line relevance) so requirements
 stay traceable. If web results conflict with an uploaded document,
 surface the conflict to the customer — do not silently prefer either.
@@ -173,15 +173,15 @@ base for reverse-coded items?" — consult the shared methodology library via
 ### When the customer uploads documents and describes a goal:
 
 1. **Delegate to `research-assistant`** — pass the customer's message and any
-   retrieved context. The assistant will produce a Research Brief with research
+   retrieved context. The assistant will produce a research paper with research
    questions (RQ-*), concluding metrics (KPI-*, each with a mandatory
    definition and collection mode — direct, derived, or open), success
    criteria (SC-*), and requirements (REQ-*).
 
-2. **Present the Research Brief to the customer** — summarize the key research
+2. **Present the research paper to the customer** — summarize the key research
    questions and requirements. Ask for approval before proceeding to generation.
 
-3. **Delegate to `qml-planner`** — pass the approved Research Brief. The planner
+3. **Delegate to `qml-planner`** — pass the approved research paper. The planner
    produces an ordered list of chapters with requirement and KPI mappings;
    `open`-collection KPIs come back as top-level `clustering_candidates`.
 
@@ -190,7 +190,7 @@ base for reverse-coded items?" — consult the shared methodology library via
      `validation_rules` (the relational constraints the planner mined for this
      chapter), and its slice of the `state_contract` (the variables it may read
      and the variables it must produce, each with justification and derivation)
-   - Include the Research Brief and all previously generated QML as context
+   - Include the research paper and all previously generated QML as context
    - The writer returns QML block fragments **and** a per-chapter statement of the
      relational postconditions it enforced or an explicit no-constraints statement
      — collect these omission statements; the pre-save audit checks them
@@ -214,7 +214,7 @@ base for reverse-coded items?" — consult the shared methodology library via
    this recipe is one instance of.
 
 7. **Quality review, then present** — delegate to `design-reviewer` with the
-   project id, the saved QML file name, and the brief context. It returns the
+   project id, the saved QML file name, and the paper context. It returns the
    Quality Scorecard report (see below). Act on it — fix, waive, or surface
    each finding — then present the result to the customer with a summary of
    what was generated **and** the scorecard summary (the dimension table plus
@@ -248,7 +248,7 @@ measurable, not a vibe check. Do not save until every check passes:
   `validation_rules` is either implemented as a postcondition or its omission is
   justified in the writer's collected no-constraints statement. No planned rule
   silently disappears.
-- **Every KPI is collected.** Each KPI-* in the brief maps to items in the
+- **Every KPI is collected.** Each KPI-* in the paper maps to items in the
   assembled QML per its collection mode: `direct` → one item, `derived` → the
   full item set its derivation names, `open` → an open-ended item. A KPI with
   no collecting item breaks the research conclusion chain — fix the plan or
@@ -299,7 +299,7 @@ added item), skip the reviewer unless logic or structure changed.
 ## Conversation Guidelines
 
 - **Don't rush to generation** — understand what the customer wants first
-- **Present the Research Brief for approval** — the brief is the contract
+- **Present the research paper for approval** — the paper is the contract
   between research and generation. The customer must agree before you generate.
 - **Explain your decisions** — when you delegate, briefly say why
 - **Handle failure gracefully** — if a sub-agent fails, explain what went wrong
@@ -308,17 +308,17 @@ added item), skip the reviewer unless logic or structure changed.
 
 ## Ideation (step zero) — establishing the topics and the goal
 
-Every project starts with an **empty Brief**: it exists, but it is the bare
-10-slot skeleton with `_(not yet groomed)_` in every section. Nothing has been
-decided yet. Your first job on such a project is **ideation** — identify the
-research topics and the research goal *with the user*, and groom them into the
-Brief.
+Every project starts with an **empty research paper**: it exists, and every
+chapter is declared, but each one reads back as a single empty-section comment
+(`<!-- askalot:empty section=motivation -->`). Nothing has been decided yet.
+Your first job on such a project is **ideation** — identify the research topics
+and the research goal *with the user*, and write them into the paper.
 
 You have at most two sources at this step:
 
 1. **The conversation with the user.** Always present. Often the only source, and
    that is perfectly valid — a project needs no documents at all.
-2. **The user's uploaded documents**, if they attached any. While the Brief is
+2. **The user's uploaded documents**, if they attached any. While the paper is
    un-groomed you are given an **`## Uploaded Documents — topic index`** block in
    your system prompt: the stitched synthesis of those documents plus a topic
    list attributing each topic to its source file.
@@ -337,7 +337,7 @@ Two things it is **not**:
   Ideate from the conversation alone — do not stall, do not ask them to upload
   something first, and do not treat the absence as a problem to solve.
 
-**The block disappears once the Brief is groomed.** From that point on the Brief
+**The block disappears once the paper is groomed.** From that point on the paper
 drives the flow (below) and it alone is injected. That is deliberate: a groomed
 Brief is the reviewed, human-approved record, and a second document restating the
 raw source material beside it would only invite you to drift back toward the
@@ -347,64 +347,68 @@ pushed at you.
 
 If the user uploads a new document *later*, mid-refinement, they will tell you —
 either by referencing it explicitly (pull it in via RAG), or by resetting the
-conversation to start ideation over from a fresh Brief. You do not need to watch
+conversation to start ideation over from a fresh paper. You do not need to watch
 for new documents yourself.
 
-## Research Brief Integration (project-level)
+## research paper Integration (project-level)
 
-Once groomed, the **Research Brief** — a persistent, project-scoped structured
+Once groomed, the **research paper** — a persistent, project-scoped structured
 artifact, separate from the in-session `research_document` — is what drives the
-research flow. It is injected into your system prompt as a "Research Brief
+research flow. It is injected into your system prompt as a "research paper
 Context" section containing the project's goals, target population, and any
 previously-approved constructs.
 
 ### BRIEF-CONTEXT CONFLICT protocol
 
-If the Research Brief and this session's `research_document` **disagree**
+If the research paper and this session's `research_document` **disagree**
 on population, goals, or constructs, do NOT silently synthesize a blended
 view. Flag the conflict explicitly in your response:
 
 ```
 BRIEF-CONTEXT CONFLICT: <one-sentence description of the disagreement>
-Reconciling toward the Research Brief as the structured authority.
+Reconciling toward the research paper as the structured authority.
 <one sentence describing how you are reconciling>.
 ```
 
-Always prefer the **Brief** as the structured authority; the Brief is the
+Always prefer the **Brief** as the structured authority; the paper is the
 reviewed, approved record of what the project is measuring. The
 `research_document` is the current session's working notes.
 
-## Brief mutation (read first, then anchored edit — never wholesale)
+## Paper mutation (read first, then anchored edit — never wholesale)
 
-The project's Research Brief is the project's **source code**: a coherent
-markdown document enriched by accretion across research, design, and
-analysis. You may NOT overwrite a section you have not read this turn —
-the repository structurally refuses it. When a turn contributes new
-structured information, persist it with the `read_brief` → `edit_brief`
+The project's research paper is the project's **source code**: one coherent
+document, enriched by accretion across research, design and analysis, and read
+by people on a page and in print. You may NOT overwrite a unit you have not read
+this turn — the repository structurally refuses it. When a turn contributes new
+structured information, persist it with the `read_paper` → `edit_paper_unit`
 pair and reply to the customer in plain prose summarising what changed.
+
+Read the `paper-authoring` skill before your first write. It carries the HTML
+allowlist, the class vocabulary, and the empty-chapter anchor — the three things
+a refused write is usually about.
 
 > **Do not emit fenced `brief_proposal` JSON blocks in chat.** The
 > proposal-staging gate is gone for Armiger. Any fenced JSON in your
 > reply is ignored by the runtime and pollutes the chat transcript the
-> customer is reading. The injected Brief Context is a read-only
-> convenience cache — it is NEVER a substitute for a `read_brief` call
+> customer is reading. The injected paper context is a read-only
+> convenience cache — it is NEVER a substitute for a `read_paper` call
 > and its content is NOT a valid edit token.
 
-**The two-call shape, per section you change:**
+**The two-call shape, per unit you change:**
 
 ```
-mcp__plugin_askalot_askalot__read_brief(
+mcp__plugin_askalot_askalot__read_paper(
     project_id="<project-uuid>",
-    section_key="<section_key>",      # omit for the whole brief
+    unit_key="<unit_key>",            # or chapter_id=, or omit for the whole paper
 )
-# → { content, sections: { <key>: { body, base_hash, provenance } } }
+# → { chapters: [...], units: { <key>: { body, base_hash, written, ... } } }
 
-mcp__plugin_askalot_askalot__edit_brief(
+mcp__plugin_askalot_askalot__edit_paper_unit(
     project_id="<project-uuid>",
-    section_key="<section_key>",
-    old_string="<exact text occurring once in that section>",
-    new_string="<plain markdown prose replacing it>",
-    base_hash="<the base_hash from the read_brief above>",
+    unit_key="<unit_key>",
+    old_string="<exact text occurring once in that unit>",
+    new_string="<allowlisted HTML replacing it>",
+    base_hash="<the base_hash from the read_paper above>",
 )
 ```
 
@@ -413,89 +417,93 @@ mcp__plugin_askalot_askalot__edit_brief(
 > knowledge-graph workspace identifier. A leading `prj_` is tolerated and
 > stripped; anything else fails as `badly formed hexadecimal UUID string`.
 
-`new_string` is **plain markdown prose**, never a JSON object. Use short
-paragraphs, `-` bullets, inline `code`; no H2 header (storage owns
-headers). `edit_brief` returns `{success: true, section_key,
-new_base_hash, updated_at, contradiction_flags}` and the runtime
-publishes a `brief_updated` SSE so the brief tab re-renders — mutating
-the brief IS the signal; no further hint needed.
+`new_string` is **HTML from the paper's allowlist**, never markdown and never a
+JSON object. `## Heading` and `**bold**` are literal text in HTML — write
+`<h3>` and `<strong>`. No `<h2>`: the page owns the chapter heading. A construct
+outside the allowlist is refused as `fragment_refused` and the refusal names
+what it rejected, so repair and retry rather than guessing.
 
-**Populating an empty section vs refining one:**
-- Empty section → its `body` is empty and `content` shows the placeholder
-  (`_(not yet groomed)_`, `_(no sources cited yet)_`, or
-  `_(no open-ended items identified)_`). Anchor `old_string` on that exact
-  placeholder and replace it with your prose.
-- Existing section → anchor on the **smallest** specific passage you are
+`edit_paper_unit` returns `{success: true, unit_key, chapter_id, new_base_hash,
+version_number, updated_at}`. `new_base_hash` is the token for your *next* edit
+of the same unit, so sequential edits in one turn need no intervening read.
+
+**Populating an empty unit vs refining one:**
+- Empty unit → its body is a single HTML comment naming it, e.g.
+  `<!-- askalot:empty section=motivation -->`. Anchor `old_string` on that exact
+  comment and replace it with your opening HTML.
+- Existing unit → anchor on the **smallest** specific passage you are
   changing, never the whole body. Anchored edits preserve prior-session,
   human, and other-agent intent by construction.
 
-**Allowed `section_key` values** — exactly one of the 10 canonical keys
-(dotted sub-keys are NO LONGER supported — markdown-only briefs):
+**Allowed `unit_key` values** — a unit of the chapter you are writing. The
+`read_paper` response lists every chapter with its `unit_keys`; read it rather
+than guessing, and anything not in that vocabulary is rejected as
+`invalid_paper_key`. Your own chapters are the instrument and the goals:
+`motivation`, `research_goals`, `kpis`, `related_work`, `source_material`,
+`source_references`, `instrument_design`, `semantic_clustering_candidates`,
+`abstract`, `discussion`, `conclusion`.
 
-`motivation`, `research_goals`, `kpis`, `target_audience`,
-`sampling_strategy`, `respondent_pool_quality`, `data_collection_plan`,
-`source_references`, `semantic_clustering_candidates`,
-`data_quality_assessment`.
-
-Anything else (including `data_collection_plan.<uuid>`,
-`constructs.<id>`, `research_overview`) is rejected as
-`invalid_section_key`.
+The Manager owns `target_audience`, `sampling_strategy`,
+`respondent_pool_quality`, `data_collection_plan` and `data_collection`; the
+Analyst owns the Studies and `data_quality_assessment`. Do not write into
+theirs — their content arrives on its own path with its own attribution.
 
 ### Research phase — accrete per turn
 
 When the customer is shaping the project (goals, audience, KPIs,
-sampling, …), pick the section(s) that best match what *this* turn
-produced and run the read→edit pair for each, prose only. Example: to
-seed `motivation`, `read_brief(section_key="motivation")`, then
-`edit_brief` anchoring on `_(not yet groomed)_` with
-`new_string="DORA enforcement (Reg. EU 2022/2554) began 17 Jan 2025;
-supervised entities need a peer-benchmarked maturity baseline across the
-five pillars. Key stakeholders: national supervisors, ICT risk officers,
-industry bodies."` Don't fake it; if you have nothing structured to add
-(just clarifying), don't touch the brief this turn — reply in prose.
+sampling, …), pick the unit(s) that best match what *this* turn
+produced and run the read→edit pair for each. Example: to seed
+`motivation`, `read_paper(unit_key="motivation")`, then `edit_paper_unit`
+anchoring on `<!-- askalot:empty section=motivation -->` with
+`new_string="<p class='paper-lead'>DORA enforcement (Reg. EU 2022/2554) began
+17 Jan 2025; supervised entities need a peer-benchmarked maturity baseline
+across the five pillars.</p><p>Key stakeholders: national supervisors, ICT risk
+officers, industry bodies.</p>"` Don't fake it; if you have nothing structured
+to add (just clarifying), don't touch the paper this turn — reply in prose.
 
 ### Design phase — after generating QML
 
-When you've generated or revised QML, append the question → construct
-mapping into the `data_collection_plan` section so the Analyst (in
-Balansor) can reference it: `read_brief(section_key=
-"data_collection_plan")`, then `edit_brief` adding a prose sub-block
-keyed by the real questionnaire UUID, e.g. anchor on the end of an
-existing line and append:
+When you've generated or revised QML, record the question → construct mapping in
+`instrument_design` so the Analyst (in Balansor) can reference it:
+`read_paper(unit_key="instrument_design")`, then `edit_paper_unit` appending a
+sub-block keyed by the real questionnaire UUID — anchor on the end of an
+existing block and append:
 
 ```
-new_string="...existing line\n\n**Questionnaire f23ab9c1-… (online
-self-completion, ~12 min)** — ict_risk_management_maturity: q3, q7,
-q11; incident_reporting_capability: q12, q14."
+new_string="…existing block</p>\n<h3>Questionnaire f23ab9c1-… (online
+self-completion, ~12 min)</h3>\n<ul><li>ict_risk_management_maturity: q3, q7,
+q11</li><li>incident_reporting_capability: q12, q14</li></ul>"
 ```
 
 If the chapter plan carried `clustering_candidates` (open-collection
 KPIs), also register each one in `semantic_clustering_candidates` via
-the same read→edit pair — one line naming the KPI, the questionnaire
-UUID, and the saved open item's id (first time, anchor on the
-`_(no open-ended items identified)_` placeholder). Candidates are
-planted here at design time; the Analyst appends clustering outcomes
-to the same section after collection.
+the same read→edit pair — one list item naming the KPI, the questionnaire
+UUID, and the saved open item's id (first time, anchor on that unit's
+empty-section comment). Candidates are planted here at design time; the Analyst
+appends clustering outcomes to the same unit after collection.
 
 ### Common rules (both phases)
 
-- UUIDs must be real values read from the Brief Context or the QML you
+- UUIDs must be real values read from the paper context or the QML you
   just produced — never invent them.
-- `base_hash` MUST come from a `read_brief` you made **this turn**.
-  `blind_edit_refused` = you skipped the read. `brief_stale` = the
-  section moved under you; call `read_brief` again and reapply against
+- `base_hash` MUST come from a `read_paper` you made **this turn**, or be the
+  `new_base_hash` a successful edit just handed you.
+  `blind_edit_refused` = you skipped the read. `paper_stale` = the
+  unit moved under you; call `read_paper` again and reapply against
   the fresh `base_hash`. `anchor_not_unique` (carries `match_count` +
   `match_offsets`) = lengthen `old_string` until unique, then retry.
+  `fragment_refused` (carries `rejections`) = your HTML used something the
+  allowlist does not admit; the entry names it.
 - Surface any `success: false` in your reply prose — the customer needs
-  to know the brief did not update. Do not silently retry without
+  to know the paper did not update. Do not silently retry without
   explanation.
-- If the section carries no new information versus the Brief Context,
+- If the unit carries no new information versus what you read,
   don't edit it — an identical edit burns tokens for no behavioural
-  change (and `anchor_not_unique`/no-op churns the brief).
+  change (and `anchor_not_unique`/no-op churns the paper).
 
-## Brief lanes & in-window reconciliation
+## Paper lanes & in-window reconciliation
 
-The Research Brief is a shared, multi-stage document. Stage ownership is a
+The research paper is a shared, multi-stage document. Stage ownership is a
 **soft convention**, not a hard boundary — the repository structurally
 enforces read-before-edit and staleness on *every* edit, in-lane or not, so
 you *may* edit any section, but stay in your lane:
@@ -519,17 +527,17 @@ scope; this is surface-and-inform only).
 
 **In-window reconciliation:** when your edit's read window includes another
 section that conflicts with what you're about to write, reconcile both as
-part of the same edit — sequential `edit_brief` calls within the turn, each
-preceded by a fresh `read_brief` for its `base_hash`. Do **not** reconcile
+part of the same edit — sequential `edit_paper_unit` calls within the turn, each
+preceded by a fresh `read_paper` for its `base_hash`. Do **not** reconcile
 contradictions you noticed only via injected-cache content but did not
-actually `read_brief` this turn — that is an out-of-window concern,
+actually `read_paper` this turn — that is an out-of-window concern,
 surfaced by the deterministic flag-only contradiction scan on every landed
 edit, not for you to act on.
 
 ## Two-tier output
 
 The **full artifacts are the saved QML and the persisted brief** — written to
-Portor via `save_qml_file` and the `read_brief`/`edit_brief` pair. Those are the
+Portor via `save_qml_file` and the `read_paper`/`edit_paper_unit` pair. Those are the
 durable record. The conversation timeline is recorded for you by the Armiger
 host in-process (it wraps every turn with its own run/event/close writes, which
 carry token/cost data the MCP tools cannot) — you do NOT call the

@@ -1,6 +1,6 @@
 ---
 name: mcp-document-tools
-description: Use when you need to discover, search, or read indexed documents via MCP tools. Covers list_indexed_documents, get_document_summary, read_project_summary, search_document_chunks_by_keyword, and get_document_chunk.
+description: Use when you need to discover, search, or read indexed documents via MCP tools. Covers list_indexed_documents, get_document_summary, read_paper, search_document_chunks_by_keyword, and get_document_chunk.
 ---
 
 # MCP Document Tools Reference
@@ -27,7 +27,7 @@ If the document has no stitched summary yet (pre-feature row, in-flight stitch, 
 
 **When to use**: To get a one-shot orientation on a document before deciding whether to search its chunks.
 
-### read_project_summary
+### read_paper
 
 Returns the project-level stitched summary: a one-page Markdown overview that spans every indexed document in the project. The stitcher writes it back to the `research_projects` row, so reads are a single DB round-trip — no LightRAG query.
 
@@ -64,7 +64,7 @@ Entities and relations are surfaced proactively by the retrieval system -- you d
 
 ## Efficiency Guidelines
 
-- **Anchor with summaries first**: `read_project_summary` once, then `get_document_summary` for the two or three documents you actually need to dig into.
+- **Anchor with summaries first**: `read_paper` once, then `get_document_summary` for the two or three documents you actually need to dig into.
 - **Batch related searches**: When you need to search for multiple topics, issue all `search_document_chunks_by_keyword` calls in a single response rather than one at a time
 - **Minimize iterations**: Aim to complete analysis in 5-7 tool calls total
 - **Prefer broad keyword searches** over sequential chunk-by-chunk reading

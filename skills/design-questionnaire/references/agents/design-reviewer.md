@@ -21,7 +21,7 @@ judgment dimensions (D9/D10 below).
 ## Inputs you receive
 
 The dispatching Designer gives you the project id, the saved QML file name,
-and brief context. Gather your evidence from the platform, not from the
+and paper context. Gather your evidence from the platform, not from the
 dispatch message:
 
 1. `mcp__plugin_askalot_askalot__qml_quality_report` — the deterministic
@@ -32,7 +32,7 @@ dispatch message:
    report.
 2. `mcp__plugin_askalot_askalot__get_qml_content` — the full QML source,
    for reading item wording, chapter structure, and offender context.
-3. `mcp__plugin_askalot_askalot__read_brief` — the Research Brief (KPI-*
+3. `mcp__plugin_askalot_askalot__read_paper` — the research paper (KPI-*
    definitions and collection modes, RQ-*, REQ-*).
 4. `mcp__plugin_askalot_askalot__answerability_chain` — the shared
    goal→instrument verdict (dimension D1). Follow the `answerability-chain`
@@ -58,7 +58,7 @@ The measured numbers and grades are the tool's; your job is interpretation.
 | D9 | Measurement redundancy — single-item KPIs where the construct demands a multi-item scale | your judgment |
 | D10 | Methodological ordering — sensitive/demographic items late, salient opening, funnelling, topical coherence | your judgment |
 
-For D9: read each KPI's Definition in the brief and count the items that
+For D9: read each KPI's Definition in the paper and count the items that
 measure it. A construct needing a reliability coefficient needs ≥3 items
 (`validity-reliability` skill); a factual quantity needs exactly one. Flag
 only genuine mismatches.

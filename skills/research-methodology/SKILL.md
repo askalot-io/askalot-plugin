@@ -5,7 +5,7 @@ description: Use when planning survey research, defining target populations, ope
 
 # Research Methodology for Survey Research
 
-Comprehensive guide to designing high-quality survey research, grounded in peer-reviewed literature and field-tested practices. This knowledge base supports research assistants in translating research topics into well-defined survey research briefs.
+Comprehensive guide to designing high-quality survey research, grounded in peer-reviewed literature and field-tested practices. This knowledge base supports research assistants in translating research topics into well-defined survey research papers.
 
 ## Table of Contents
 
@@ -477,5 +477,5 @@ THEN choose techniques (technology platform, software, mode) that implement the 
 
 - **Created**: March 2026
 - **Based on**: Content extracted from *How to Run Surveys* (Stantcheva 2023), *Question and Questionnaire Design* (Krosnick & Presser 2010), *Questionnaire Design, Interviewing and Attitude Measurement* (Oppenheim 1992), and *Internet, Phone, Mail, and Mixed-Mode Surveys* (Dillman et al. 2014)
-- **Purpose**: Knowledge base for research assistant AI agent translating research topics into well-defined survey research briefs
+- **Purpose**: Knowledge base for research assistant AI agent translating research topics into well-defined survey research papers
 - **Audience**: Research assistants, survey designers, research methodologists

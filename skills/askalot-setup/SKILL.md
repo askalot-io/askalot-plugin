@@ -83,7 +83,55 @@ A successful call lists your accessible projects (or returns an empty
 list if you haven't created any). A 401 here means the OAuth handshake
 didn't complete or the refresh token was rejected — see Troubleshooting.
 
-## 4. Revoke an approved client
+## 4. Which organization are you working in?
+
+Your session is always in exactly **one** organization at a time — its
+*active organization* — and every tool call resolves against it. Projects,
+questionnaires, campaigns and datasets are all organization-scoped, so this
+is the single most important thing to know about where a tool is looking.
+
+**Where you start.** A fresh session lands in your home organization: the
+one your account belongs to. You are never asked to choose during sign-in.
+
+**How to see it.** `list_organizations` shows every organization this session
+may act in, marks which one is active, and flags any that are read-only:
+
+```
+@mcp__plugin_askalot_askalot__list_organizations
+```
+
+If you belong to one organization, that is the whole list and there is
+nothing to manage. If you are a multi-organization member — or an operator —
+the list is longer, and it matches exactly what the **Switch Organization**
+menu offers you in the browser.
+
+**How to change it.** `switch_organization` moves the session:
+
+```
+@mcp__plugin_askalot_askalot__switch_organization organization_id=<id from the list>
+```
+
+Every later call resolves in the new organization, and the change **sticks**:
+restart Claude Code and you resume where you left off. Switch back the same
+way. The tenant is fixed when you sign in and never changes — switching moves
+you between organizations inside one tenant.
+
+**When you are in the wrong one.** A not-found now tells you where it looked:
+
+```
+Project 6f2a… not found (searched organization: ACME Corp)
+```
+
+That is the signal to run `list_organizations` and switch, rather than
+concluding the project does not exist.
+
+**Read-only organizations.** Some organizations are sealed — a curated demo,
+or a former customer's data kept for its retention window. You can switch
+into one and read everything; any attempt to write is refused with
+`org_read_only`. `list_organizations` marks them, so you can tell before you
+try.
+
+## 5. Revoke an approved client
 
 If a machine is lost, stolen, or you want to revoke Claude Code's
 access without affecting other API consumers:

@@ -194,7 +194,7 @@ the failed subset.
 
 Askalot's MCP surface is large — well over 100 tools across projects,
 campaigns, questionnaires, respondents, pools, strategies, surveys,
-datasets, bundles, documents, methodology library, brief, conversation
+datasets, bundles, documents, methodology library, paper, conversation
 persistence, and audit. Preloading every tool's full schema into context
 up front is wasteful when a given turn only needs a handful.
 
