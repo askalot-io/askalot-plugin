@@ -125,7 +125,7 @@ Project 6f2a… not found (searched organization: ACME Corp)
 That is the signal to run `list_organizations` and switch, rather than
 concluding the project does not exist.
 
-**Read-only organizations.** Some organizations are sealed — a curated demo,
+**Sealed organizations.** Some organizations are sealed — a curated demo,
 or a former customer's data kept for its retention window. You can switch
 into one and read everything; any attempt to write is refused with
 `org_read_only`. `list_organizations` marks them, so you can tell before you
