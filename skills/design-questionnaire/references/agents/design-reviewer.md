@@ -49,7 +49,7 @@ The measured numbers and grades are the tool's; your job is interpretation.
 |---|-----------|-------------|
 | D1 | KPI coverage — every KPI-* collected per its mode; no orphaned items | `answerability_chain` verdict + brief |
 | D2 | Instrument economy — dead-weight variables | tool |
-| D3 | Quality-gate density — items with CONSTRAINING postconditions | tool |
+| D3 | Quality-gate density — share of NUMERIC inputs carrying a CONSTRAINING postcondition; choice items are excluded from the rate and their cross-item rules counted as `consistency_gates`, and an instrument with no numeric inputs grades `not_applicable` rather than `weak` | tool |
 | D4 | Verification coverage — predicates inside Z3's reach | tool |
 | D5 | Structural complexity — decision density, cyclomatic vector | tool |
 | D6 | Order coherence — authored vs delivered item order | tool |

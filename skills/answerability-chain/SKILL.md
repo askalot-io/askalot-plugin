@@ -148,5 +148,5 @@ or store it.
 and act on the graded verdict, and why the surrounding design rejects
 frozen states / pre-gates / orchestration JSON. **Does not cover**: the
 verdict computation (single-sited in
-`askalot_common.research_brief.answerability` — you never re-derive it),
+`askalot_common.paper.answerability` — you never re-derive it),
 paper mutation (a separate tool), or remediation (a human decision).

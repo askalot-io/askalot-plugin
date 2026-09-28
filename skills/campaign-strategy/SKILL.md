@@ -371,6 +371,24 @@ mapping to ground your advice in what can actually be measured.
 | Response quality | Entropy, straightlining, Cronbach's alpha, speeder detection | `get_bundle_quality` (Response Quality measure) |
 | Strategy factor design | Demographic factors with target distributions | `create_sampling_strategy` |
 | Pool generation | Greedy (error-minimizing) or random constrained (quota-based) selection | `generate_pool_from_strategy` |
+| The whole fielding chain | Strategy, pool, assignment, QML pin, surveys -- one call, capability-checked per step, stopping short of the send | `prepare_campaign_fielding` |
+| A campaign's synthetic responses | Surveys created, then filled -- returns a `task_id` | `simulate_campaign_responses` |
+
+`prepare_campaign_fielding` is the strategy-through-surveys chain as one call.
+Use it when the design is settled and you are executing it; use the raw verbs
+when you are still deciding, because each of them is where a judgement gets
+made. The composite adds one step a hand-built chain forgets -- `publish_qml_file`,
+which pins the questionnaire version the campaign fields. Without that pin every
+survey resolves the head at read time, so an edit mid-fielding silently changes
+the instrument under the respondents who have already answered, and the
+representativeness figures above are then computed over two different
+questionnaires.
+
+It also stops one step short of the send: it never calls
+`send_campaign_invitations`, so committing a design to real respondents stays a
+separate, explicit decision made after you have read what the chain built.
+Recruitment is the point at which the strategy above becomes irreversible --
+mail cannot be unsent -- so it is not something a chain should do on your behalf.
 
 ### Reasoning Only (Not Yet Computable)
 

@@ -1,10 +1,11 @@
 """
-Claude Code plugin tree for Askalot AI agents, skills, profiles, and MCP wiring.
+Claude Code plugin tree for Askalot AI skills, profiles, and MCP wiring.
 
 This package marker exists so Python imports resolve cleanly against the
 installed wheel (e.g. ``from askalot_ai.plugin.profiles import ...``). The
-``agents/`` and ``skills/`` siblings are markdown-only and are not Python
-sub-packages; ``__all__`` is empty to discourage importing them as such.
+``skills/`` sibling is markdown-only and is not a Python sub-package;
+``__all__`` is empty to discourage importing it as one. The research-lifecycle
+flows are skills, not installed agents, so there is no ``agents/`` directory.
 
 The directory is loaded by Claude Code via
 ``ClaudeAgentOptions(plugins=[{"type": "local", "path": <site-packages>/askalot_ai/plugin}])``

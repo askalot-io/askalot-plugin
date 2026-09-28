@@ -80,13 +80,13 @@ The run row transitions from `running` to `closed`. Idempotent on terminal state
 
 `event_seq` is a per-run monotonic counter starting at **0**. Increment by 1 for each successful `append_conversation_event` call.
 
-**If `append_conversation_event` returns `success: false` with a transient error code (NOT `invalid_event_kind`, `validation_error`, `tool_args_too_large`, `run_not_running`, or `run_event_limit_exceeded`), retry with the SAME `event_seq` — do not increment.**
+**If `append_conversation_event` returns `success: false` with a transient error code (NOT `invalid_event_kind`, `validation_error`, `run_not_running`, or `run_event_limit_exceeded`), retry with the SAME `event_seq` — do not increment.**
 
 The server's `(run_id, event_seq)` UNIQUE index plus `INSERT ... ON CONFLICT DO NOTHING` makes same-seq retries safe: a duplicate insert is dropped silently. If you increment on retry, the server records `seq=N+1` but its earlier write of `seq=N` may or may not have committed, leaving a permanent gap in the visible timeline. Gaps are not a hard error but break the "no skipped tool calls" guarantee the audit surface relies on.
 
 **Response classification:**
 
-- `invalid_event_kind` / `validation_error` / `tool_args_too_large` — the payload itself is wrong. **Do not retry.** Fix the event shape and emit a different event.
+- `invalid_event_kind` / `validation_error` — the payload itself is wrong. **Do not retry.** Fix the event shape and emit a different event.
 - `run_not_running` (HTTP 409) — the run was orphaned by a `reset_conversation` or by Seneschal's 15-minute timeout. **Do not retry.** Stop emitting events for this run; the turn is effectively cancelled.
 - `run_event_limit_exceeded` (HTTP 429) — the 10 000-event-per-run cap was hit. **Do not retry.** Call `end_run`, start a fresh `run_id` via `start_run`, and continue there. The customer will see two adjacent run rows.
 - Transient network error, unexpected 500, other 5xx — retry with the SAME `event_seq`.
@@ -99,7 +99,7 @@ If you hit the cap, call `end_run`, generate a fresh `run_id`, call `start_run` 
 
 ## The size caps
 
-- `tool_args` — 16 KB serialized JSON. Oversized payloads return 400 `TOOL_ARGS_TOO_LARGE`. Truncate or summarize.
+- `tool_args` — 16 KB serialized JSON. An oversized payload is **accepted and elided**, never rejected: the event is stored with its small identifying arguments intact and each oversize value replaced by a `{"__elided__": true, "bytes": N}` marker. Send the real arguments; do not pre-truncate or summarize them, and do not treat a large payload as an error to handle.
 - `tool_result_preview` — 32 KB truncated server-side. Anything longer is silently cut at 32 KB; pass the head of the result.
 
 These caps are per-event, not per-run.

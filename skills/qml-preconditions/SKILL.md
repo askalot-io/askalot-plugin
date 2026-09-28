@@ -17,6 +17,66 @@ Blocks are displayed in their defined order, but items within a block are ordere
 
 **If 5 questions apply only to adults, ALL 5 must have their own `precondition:` -- not just the first one.**
 
+The same rule reaches across gates. An item that was not asked has an outcome of
+`None` at runtime. `None == 1` is false and `None != 1` is true, so an equality test
+against an unasked item is safe; an ordering test (`q_x.outcome >= 18`) and arithmetic
+(`q_x.outcome + 1`) raise. A precondition that raises is treated as **unsatisfied** and
+the item is skipped -- the gate you could not check is honoured, not ignored -- and a
+`degraded` warning is recorded against the survey. So a predicate that reads a
+may-be-unasked item does not merely risk showing the wrong item: it reliably hides the
+item for every respondent who did not answer the referenced one.
+
+The validator flags this as `none_unsafe_reference` (a warning), naming both items,
+whenever the referenced item is not asked on every path that reaches yours. Two ways to
+fix it, and the lint accepts either:
+
+```yaml
+# 1. Guard the reference explicitly.
+precondition:
+  - predicate: q_dx_age.outcome is not None and q_dx_age.outcome >= 40
+    hint: "Diagnosed at 40 or later"
+
+# 2. Repeat the referenced item's own gate, so the two are always reached together.
+precondition:
+  - predicate: q_diabetes.outcome == 1        # the gate q_dx_age itself carries
+    hint: "Diabetics only"
+  - predicate: q_dx_age.outcome >= 40
+    hint: "Diagnosed at 40 or later"
+```
+
+**They are not interchangeable — pick by what should happen to the owner item.** The
+guard keeps the owner reachable exactly where it was, and only neutralises the reference.
+Repeating the referent's gate narrows the owner's own reachability to match the
+referent's, so anyone who reached the owner by another route stops seeing it. Guard when
+the owner should stay reachable independently of the referent; repeat the gate when the
+two items genuinely belong to the same branch and should always travel together.
+
+An item gated on `q_pregnant.outcome != 1` needs neither: equality against `None` is
+clean. Add the `q_sex.outcome == 2 and q_age.outcome <= 49` gate anyway when you mean
+"asked and answered no", because `None != 1` and `2 != 1` are both true and the two say
+very different things about the respondent.
+
+**Asked and left unanswered is a different case, and the engine does not guess it.**
+Everything above is about an item its own gate kept out. When the respondent was *shown*
+an item and skipped it, its `None` means "unknown". A condition that reads it is then
+decided only by the answers it has:
+- `q_a.outcome == 1 or q_b.outcome == 1` still holds when `q_a` is 1 and `q_b` was
+  skipped.
+- A condition the skipped answer could still change is left undecided. A precondition
+  then skips its item, and a postcondition lets the answer through. Both record a
+  `degraded` warning (`precondition_unanswered_dependency` /
+  `postcondition_unanswered_dependency`).
+
+So `q_marital.outcome != 3` does **not** admit a respondent who skipped `q_marital`. If
+an unknown answer should route somewhere specific, say so with an explicit `None` test,
+which the engine evaluates as written:
+
+```yaml
+precondition:
+  - predicate: q_marital.outcome is None or q_marital.outcome != 3
+    hint: "Unknown or not single"
+```
+
 ```yaml
 # CORRECT: Each item has its own precondition
 - id: q_employment
@@ -74,6 +134,24 @@ postcondition:
   - predicate: q_children.outcome >= 0
     hint: "Cannot be negative"
 ```
+
+A postcondition that cannot be evaluated fails the **other** way from a precondition:
+the answer is accepted unchecked, and the survey is recorded `critical`, which excludes
+it from dataset extraction. This is why a postcondition that orders against a
+may-be-unasked item is the more expensive version of the mistake -- it costs the whole
+row, not one item. Guard it with `is None`, which reads as "the rule does not apply":
+
+```yaml
+postcondition:
+  - predicate: q_dx_age.outcome is None or q_age.outcome >= q_dx_age.outcome
+    hint: "Your age cannot be less than your age at diagnosis"
+```
+
+Conditions live on **items and blocks only**. A block-level `precondition` /
+`postcondition` applies to every item in the block and is evaluated before the item's
+own. There is no questionnaire-level condition -- a root-level `precondition:` key is
+never evaluated by anything, and the validator reports it as
+`questionnaire_level_condition`.
 
 ## Progressive Disclosure Pattern
 
@@ -260,19 +338,40 @@ unique to it.
 
 ## Common Patterns
 
-### Screening Gate
+### Screening Gate -- route, do not refuse
+A screener's job is to decide who continues, and the screened-out answer is data (an
+eligibility rate needs its denominator). A postcondition `q_eligible.outcome == 1` on the
+screener refuses the *No*: the respondent cannot leave the item, the survey never
+completes, and the *No* is never stored. Gate the substantive blocks on the screener
+instead and close the screened-out path with a Comment:
+
 ```yaml
-- id: q_eligible
-  kind: Question
-  title: "Are you 18 or older?"
-  input:
-    control: Switch
-    on: "Yes"
-    off: "No"
-  postcondition:
+- id: b_screening
+  items:
+    - id: q_eligible
+      kind: Question
+      title: "Are you 18 or older?"
+      input:
+        control: Switch
+        on: "Yes"
+        off: "No"
+    - id: q_screened_out
+      kind: Comment
+      title: "Thank you -- this survey is for adults only, and your answers end here."
+      precondition:
+        - predicate: q_eligible.outcome == 0
+
+- id: b_main
+  precondition:
     - predicate: q_eligible.outcome == 1
-      hint: "You must be 18 or older to participate"
+  items:
+    # every substantive item; each still carries any residual gate of its own
 ```
+
+Keep postconditions for **consistency** between answers (children <= household size,
+sentenced implies convicted). A postcondition whose only satisfying answer is one value of
+a two-value control is a mandated answer, and a mandated answer makes the other answer
+unmeasurable.
 
 ### Multi-Level Screening
 ```yaml

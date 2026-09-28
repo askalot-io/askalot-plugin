@@ -57,7 +57,7 @@ Otherwise, wrap each turn in three MCP calls:
 
 If `append_conversation_event` returns `success: false` with a transient
 error code (NOT `invalid_event_kind`, `validation_error`,
-`tool_args_too_large`, `run_not_running`, or `run_event_limit_exceeded`),
+`run_not_running`, or `run_event_limit_exceeded`),
 retry with the **same** `event_seq` — never increment on retry. The server
 deduplicates on `(run_id, event_seq)`; incrementing on retry produces
 permanent gaps in the timeline.

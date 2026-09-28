@@ -50,6 +50,30 @@ blocks:
 - Keep dependencies within blocks whenever possible
 - Consider blocks as logical survey sections or pages
 
+**A block can carry its own `precondition` and `postcondition`.** A block-level
+`precondition` gates every item in the block (it is AND-ed with each item's own
+precondition at evaluation time, and the Z3 builder composes them the same way). It is
+the sanctioned way to make a whole section depend on an earlier answer — an optional
+module gated on a core item, a renter-costs block gated on tenure — without repeating the
+gate on every item. A block-level `postcondition` is evaluated before each inner item's
+own postconditions. Read `qml-preconditions` ("Hoisting Shared Gates") for when to hoist
+a gate to the block and when to factor gated items into their own block.
+
+```yaml
+- id: b_renter_costs
+  title: "Renter Costs"
+  precondition:
+    - predicate: q_tenure.outcome == 3   # only renters see this whole block
+  items:
+    - id: q_monthly_rent
+      kind: Question
+      title: "What is the monthly rent?"
+      input:
+        control: Editbox
+        min: 1
+        max: 99999
+```
+
 ### 2b. Block Kinds
 
 Every block has a `kind`. Two kinds exist; `kind` is optional and defaults to `Group`:
@@ -57,7 +81,7 @@ Every block has a `kind`. Two kinds exist; `kind` is optional and defaults to `G
 | Kind | Description |
 |------|-------------|
 | `Group` | Default (omit `kind` for this). Asks each in-scope item once in canonical order. Optional `count: N` (positive integer literal) caps the block to the first N eligible items — a deterministic first-N cap, not random selection. |
-| `Roster` | Repeat inner items per set bit in an `iterateOver` integer bitmask. Required: `iterateOver` (Python expression → non-negative int bitmask) and `labels` (map of power-of-2 keys to display strings). |
+| `Roster` | Repeat inner items per set bit in an `iterateOver` integer bitmask. Required: `iterateOver` (Python expression → non-negative int bitmask) and `labels` (map of power-of-2 keys to display strings). Optional: `subjectFrom` (the id of an inner item whose answer becomes the iteration's displayed subject). |
 
 **`count` is a deterministic first-N cap.** The block walks its items in canonical order; an item whose precondition is true consumes a slot, an item whose precondition is false is a free pass, and the draw stops once `count` slots are filled or the pool is exhausted. There is no randomness — the same answers always yield the same asked set. Inner items of a `count`-capped Group **must be independent** (no inner item may depend on another inner item of the same Group); a Group without `count` may contain inner dependencies. `count` applies only to `Group` — a Roster must not declare it.
 
@@ -149,6 +173,45 @@ questionnaire:
             max: 5
 ```
 
+#### Roster subject: `subjectFrom`
+
+Each Roster iteration is shown under its `labels` entry ("Person 2", "Lunch"). When the
+respondent names the subject themselves — a household member, a product, an employer —
+declare `subjectFrom: <inner item id>` and the iteration is titled with that item's
+answer once it is given, falling back to the static label until then. The item it names
+must be an inner item of the Roster that carries an outcome (a Question, typically a
+Textarea for a name). Naming a Comment makes the subject unresolvable, and the validator
+reports it (`roster_subject_not_answerable`) because every iteration would silently show
+the static label instead of the thing it is about.
+
+```yaml
+- id: b_household_members
+  kind: Roster
+  iterateOver: "person_mask"
+  subjectFrom: q_member_name
+  labels:
+    1: "Person 1"
+    2: "Person 2"
+    4: "Person 3"
+  items:
+    - id: q_member_name
+      kind: Question
+      title: "What is this person's name?"
+      input:
+        control: Textarea
+    - id: q_member_age
+      kind: Question
+      title: "How old is this person?"
+      input:
+        control: Editbox
+        min: 0
+        max: 120
+```
+
+`iterateOver` may name a Checkbox outcome directly or a bitmask variable a codeBlock
+derives (for example, widening a head-count into `person_mask`); either way the labels
+must cover every bit the mask can set.
+
 ### 3. Items - The Question Types
 
 QML supports four types of items:
@@ -236,6 +299,13 @@ input:
   off: "No"
   default: 0  # Optional: 0 for off, 1 for on
 ```
+
+The outcome is `1` for `on` and `0` for `off`. `on`/`off` is the spelling the JSON
+schema declares. The renderer also accepts `true`/`false` as label keys (a spelling many
+existing instruments use — YAML parses them as booleans and the schema does not reject
+them), so read either in a file you are editing; write `on`/`off` in new files so the
+schema and the file say the same thing. Never leave a Switch without labels: it renders
+as a bare toggle and the respondent cannot tell which way is "yes".
 
 #### 4.2 Radio (Single Selection)
 ```yaml
@@ -368,8 +438,59 @@ precondition:
   - predicate: employment_status == "employed"  # Using variables
 ```
 
+**An item that was not asked has an outcome of `None`.** A predicate that reads the
+outcome of an item whose own precondition was false sees `None`, not `0`. Equality
+comparisons evaluate cleanly (`None == 1` is false, `None != 1` is true); an ordering
+comparison (`q_x.outcome >= 18` with `q_x` unasked) and arithmetic (`q_x.outcome + 1`)
+raise. A precondition that raises is treated as **unsatisfied**: the item is skipped and
+a `degraded` warning is recorded. So the item you gated on a may-be-unasked item is
+hidden from every respondent who did not answer the referenced one — not shown to
+everyone, and not shown selectively; hidden, silently, for exactly the group you were
+trying to reach.
+
+The validator reports this as `none_unsafe_reference` (warning), naming both items.
+Fix it by guarding the reference (`q_x.outcome is not None and (q_x.outcome >= 18)` —
+parenthesised, because `and` binds tighter than `or`) or by
+repeating the referenced item's own gate. The two differ: the guard leaves the owner
+reachable wherever it was, while repeating the gate narrows the owner to the referent's
+branch. Guard when the owner should stay independently reachable; repeat the gate when
+the two belong together — if `q_pregnant` is asked only when
+`q_sex.outcome == 2 and q_age.outcome <= 49`, an item gated on `q_pregnant.outcome != 1`
+should repeat that gate rather than rely on `None != 1` happening to be true. This is the
+same "no inheritance" rule `qml-preconditions` states for sibling items, applied across
+gates.
+
+An item that **was** asked and left unanswered is a separate, runtime case: see
+`qml-preconditions`.
+
 #### 5.2 Postconditions (Validation After Response)
-Ensure data consistency and cross-item validation:
+Ensure data consistency and cross-item validation. A postcondition relates the answer
+just given to other answers or to the item's own domain; the respondent is asked to
+correct the answer until every predicate holds.
+
+**A postcondition fails the OPPOSITE way from a precondition.** Returning false is what
+refuses the answer, so a postcondition the engine cannot evaluate must let the
+respondent through — the answer is accepted *unchecked* and the survey is recorded
+`critical`, which excludes it from dataset extraction. An unguarded ordering against a
+may-be-unasked item therefore costs the whole row, not one item. Write the guard as
+`is None`, which reads as "the rule does not apply":
+
+```yaml
+postcondition:
+  - predicate: q_dx_age.outcome is None or q_age.outcome >= q_dx_age.outcome
+    hint: "Your age cannot be less than your age at diagnosis"
+```
+
+**A postcondition that admits only one answer is not validation — it is a gate that
+ends the interview.** `q_consent.outcome == 1` on a yes/no item means a *No* can never be
+submitted: the respondent is stuck, the survey never completes, and the *No* is not in
+the data. If the research question wants to count the people who answer *No* (how many
+merchants are out of scope, how many applicants decline), a mandated-answer postcondition
+makes that count unobservable. Use routing instead — accept the answer, gate what follows
+on it with a block-level precondition, and close with a screen-out Comment (see the
+Screen-Out Routing pattern in §7.3). Reserve postconditions for **consistency**: relations
+between answers (children ≤ household size, sentenced implies convicted) and bounds the
+control cannot express.
 
 ```yaml
 - id: q_income_contributors
@@ -390,6 +511,8 @@ Ensure data consistency and cross-item validation:
 
 #### 6.1 Variable Scope
 **IMPORTANT**: All variables in QML are **global**. There is no variable scoping - any variable created or modified in any code block (including codeInit) is accessible and modifiable from any subsequent code block in the questionnaire.
+
+**A variable holds a value only after a codeBlock that assigns it has actually run on the respondent's path.** Variable state follows the items that ran: if the assigning item was skipped by its precondition, sits later in the flow, or assigns on one `if` branch only, a later read raises `NameError`: in a precondition the reading item is skipped as degraded; in a postcondition the answer is accepted unchecked, and in a codeBlock the block stops part-way — both mark the survey critical and exclude it from datasets. When a respondent goes back and changes an answer, variables the new answer no longer produces are gone — not left over. The validator reports such a read as `uninitialized_read` (warning), naming the reader and the variable. Fix it by assigning a default in `codeInit` (`risk = 0`), assigning on both branches, or gating the reader on the same condition as the assignment (`q_b.outcome > 5 and risk == 1`).
 
 ```yaml
 questionnaire:
@@ -719,13 +842,19 @@ Given regulation: "Companies with more than 50 employees must have a safety offi
   title: "Does your company have a designated safety officer?"
   precondition:
     - predicate: q_employee_count.outcome > 50
-  postcondition:
-    - predicate: q_has_safety_officer.outcome == 1
-      hint: "Companies with >50 employees must have a safety officer"
   input:
     control: Switch
     on: "Yes"
     off: "No"
+
+# The regulation says a >50-employee company MUST have one. That is a finding to
+# record, not an answer to refuse: a postcondition `== 1` here would stop every
+# non-compliant company at this item and leave no row behind. Ask, then route.
+- id: q_no_officer_notice
+  kind: Comment
+  title: "Companies with more than 50 employees are required to designate a safety officer. Your answers will be recorded as non-compliant on this point."
+  precondition:
+    - predicate: q_employee_count.outcome > 50 and q_has_safety_officer.outcome == 0
     
 - id: q_industry_type
   kind: Question
@@ -752,6 +881,11 @@ Given regulation: "Companies with more than 50 employees must have a safety offi
     min: 0
     max: 50
 ```
+
+`q_safety_officer_experience` above is a genuine postcondition: it relates the officer's
+experience to the industry, and a respondent can always satisfy it by correcting a
+mistyped number. The safety-officer requirement is not — no correction exists for "we do
+not have one" — so it is recorded through routing and counted at analysis.
 
 **What the Validator Handles Automatically:**
 - Path exploration and reachability analysis
@@ -826,6 +960,45 @@ Show questions progressively based on previous answers:
     max: 10
 ```
 
+#### 7.3b Screen-Out Routing Pattern
+A screener decides who continues. Gate the substantive blocks on the screener with
+block-level preconditions, and give the screened-out respondent a closing Comment so the
+interview ends legibly. The screened-out answer is stored — which is what makes
+eligibility rates, mis-scope counts and refusal rates measurable at all.
+
+```yaml
+- id: b_screening
+  items:
+    - id: q_age_ok
+      kind: Question
+      title: "Are you 18 or older?"
+      input:
+        control: Switch
+        on: "Yes"
+        off: "No"
+    - id: q_screened_out
+      kind: Comment
+      title: "Thank you — this survey is for adults only, and your answers end here."
+      precondition:
+        - predicate: q_age_ok.outcome == 0
+
+- id: b_main
+  precondition:
+    - predicate: q_age_ok.outcome == 1
+  items:
+    - id: q_first_substantive
+      kind: Question
+      title: "..."
+      input:
+        control: Radio
+        labels:
+          1: "..."
+          2: "..."
+```
+
+Do not write `postcondition: q_age_ok.outcome == 1` on the screener: it refuses the *No*
+instead of routing it, and the respondent cannot leave the item.
+
 #### 7.4 Data Quality Patterns
 Ensure response quality with validation:
 ```yaml
@@ -897,23 +1070,25 @@ blocks:
 
 ### 8. Common Pitfalls to Avoid
 
-#### Avoid Cross-Block Dependencies
+#### Prefer Block-Level Gates over Scattered Cross-Block Item Gates
+A later block depending on an earlier answer is normal — every optional module in a
+large instrument does it. What makes a file hard to maintain is many *item-level* gates
+in one block each reaching back to different earlier blocks. Prefer one of two shapes:
+
 ```yaml
-# BAD: Item in block2 depends on item in block1
+# GOOD: the dependency is one block-level gate, read in one place
 blocks:
-  - id: block1
+  - id: b_financial
     items:
       - id: q_income
-  - id: block2
+  - id: b_loan
+    precondition:
+      - predicate: q_income.outcome > 50000
     items:
-      - id: q_loan_eligible
-        precondition:
-          - predicate: q_income.outcome > 50000  # Cross-block dependency
-```
+      - id: q_loan_amount
+      - id: q_loan_term
 
-#### Better: Keep Related Items Together
-```yaml
-# GOOD: Related items in same block
+# ALSO GOOD: an item that depends on a sibling stays in the sibling's block
 blocks:
   - id: b_financial
     items:
@@ -921,6 +1096,23 @@ blocks:
       - id: q_loan_eligible
         precondition:
           - predicate: q_income.outcome > 50000
+```
+
+```yaml
+# AVOID: item-level gates scattered across blocks, each reaching back differently
+blocks:
+  - id: b_financial
+    items:
+      - id: q_income
+  - id: b_misc
+    items:
+      - id: q_loan_eligible
+        precondition:
+          - predicate: q_income.outcome > 50000
+      - id: q_unrelated
+      - id: q_other_gated
+        precondition:
+          - predicate: q_income.outcome > 20000
 ```
 
 #### Avoid Missing Value Definitions
@@ -1191,8 +1383,8 @@ When creating QML questionnaires, think declaratively:
 1. **Declare constraints, not flow** - Preconditions and postconditions define the logic; the Z3 solver verifies consistency
 2. **Always define valid values** - `min`/`max` for range-based controls, `labels` for selection controls
 3. **Use preconditions** - Define when a question applies, not how to navigate to it
-4. **Use postconditions** - Define what must be true, not how to enforce it
+4. **Use postconditions for consistency, routing for eligibility** - A postcondition relates answers; one that admits a single answer ends the interview and hides the answer you wanted to count
 5. **Choose the right control** - Match the UI to the data type (see Section 4.9)
 6. **Keep code blocks Z3-verifiable** - Only use the supported Python subset (no `sum`, `len`, `append`, etc.)
-7. **Minimize cross-block dependencies** - Keep related items in the same block
+7. **Gate sections at the block** - A later block that depends on an earlier answer carries one block-level precondition; item-level gates stay beside the item they depend on
 8. **Provide helpful hints** - Make postcondition messages user-friendly

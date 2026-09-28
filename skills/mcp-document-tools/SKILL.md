@@ -29,13 +29,27 @@ If the document has no stitched summary yet (pre-feature row, in-flight stitch, 
 
 ### read_paper
 
-Returns the project-level stitched summary: a one-page Markdown overview that spans every indexed document in the project. The stitcher writes it back to the `research_projects` row, so reads are a single DB round-trip — no LightRAG query.
+Returns the project's research paper — its chapters as assembled text, plus the per-unit map you edit against. Signature: `read_paper(project_id, chapter_id=None, unit_key=None)`; supply at most one of `chapter_id` and `unit_key`, since a unit belongs to exactly one chapter.
 
-The response envelope carries an `is_stale` boolean that flips true when the last stitch run failed and the persisted body is the previous good output. Surface a "showing stale summary" warning to the user when this is set.
+```
+{"success": true, "project_id", "scope",
+ "chapters": [{"chapter_id", "title", "content", "written", "unit_keys"}],
+ "units": {"<unit_key>": {"body", "anchor_basis", "base_hash", "content_hash",
+                          "written", "version_number", "provenance",
+                          "agent_kind", "stale", "stale_since"}}}
+```
 
-Empty-state semantics match `get_document_summary` — a project with no stitched summary yet returns a short placeholder body.
+`base_hash` is the read token `edit_paper_unit` requires — an edit with no token, or a stale one, is refused. Injected paper context is a cache, **not** a read token: call `read_paper` for a current `base_hash` before every edit.
 
-**When to use**: Once per session to anchor what the project as a whole is about before drilling into individual documents.
+`anchor_basis` is what an anchored edit matches against. For a unit nothing has written yet it is an invisible sentinel comment, and anchoring `old_string` on that sentinel is how you write a unit's first content — an unwritten unit is present in the map, not absent from it.
+
+A body over the inline threshold comes back as `{"success": true, "download_url", "size_bytes", "note"}` instead. Fetch it or narrow the read; content is never truncated.
+
+The project-level stitched summary — the one-page synthesis spanning every indexed document — is a **unit of this paper**, not a document tool and not a separate envelope: read it with `read_paper(project_id, unit_key="source_material")`. There is no separate storage row behind it and no separate `is_stale` envelope flag; it is a paper unit like any other, carrying the same `written`, `base_hash` and `stale` / `stale_since` fields.
+
+Staleness did **not** go away with the old envelope — it moved onto the unit, and `source_material` is the one unit it is ever set on. When a stitch run fails, the stitcher leaves the previous good body in place and sets `stale_since` on the unit; the body you read is then the last *successful* synthesis, not a description of what is indexed now. So when a unit's `stale` is true, say so — surface a "showing stale summary" warning rather than presenting the body as current.
+
+**When to use**: once per session to anchor what the project is about, and again before every edit, for the token.
 
 ### search_document_chunks_by_keyword
 

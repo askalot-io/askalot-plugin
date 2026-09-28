@@ -11,6 +11,38 @@ description: Use when managing survey projects, campaigns, sampling strategies, 
 
 **Does not cover**: QML questionnaire generation, document analysis, survey completion.
 
+## Three chains have one call each
+
+Each of the three sequences below is also a single tool. They are not shortcuts
+that skip anything: every step is the same registered tool you would call by
+hand, so the same rows are written, the same audit events land, and every
+refusal the raw tool gives you is given here unchanged -- plus `stopped_at_step`,
+naming which step a stop came from. Nothing unwinds: a chain that stops partway
+leaves what the earlier steps built, and you resume by calling the remaining
+tools yourself.
+
+| Chain | One call | Raw steps it runs |
+|---|---|---|
+| Prepare a campaign for fielding | `prepare_campaign_fielding(campaign_id, admits_volunteers)` | `create_sampling_strategy` -> `generate_pool_from_strategy` -> `assign_pool_to_campaign` -> `publish_qml_file` -> `bulk_create_surveys` |
+| Simulate a campaign's responses | `simulate_campaign_responses(campaign_id, distribution, profiles, max_surveys)` | `bulk_create_surveys` -> `mass_fill_surveys` (returns a `task_id`; poll `get_task_status`) |
+| Run the dataset chain | `run_bundle_pipeline(bundle_id, include_demographics, gold_name)` | `create_bronze_dataset` -> `code_open_ends` -> `create_gold_dataset` (returns a `task_id`; poll `get_task_status`) |
+
+Two things to know before you use them:
+
+- **`prepare_campaign_fielding` stops one step short of the send.** It does not
+  call `send_campaign_invitations`, and that is deliberate: putting the send
+  inside a chain would make "prepare the fielding" indistinguishable from
+  "mail every respondent", and mail cannot be unsent. You send explicitly, as a
+  separate decision, after reading what the chain returned. It also runs
+  `publish_qml_file`, which a hand-built chain routinely forgets -- a campaign
+  fielding an unpinned questionnaire serves whatever the head says at each
+  moment.
+- **A chain is a capability boundary, not a convenience wrapper.** The composite
+  re-asks each step's capability before running it, so a caller who cannot
+  afford step four is refused *before* step one rather than handed a half-built
+  fielding. That is the opposite of the `?toolsets=` selector in the connection
+  URL, which scopes what you see and grants nothing.
+
 ## Project & Campaign Setup
 
 - `create_project` -- Create research project with clear objectives
@@ -74,6 +106,7 @@ weighting; every dataset op targets the Bundle (no free dataset selection).
 - `set_coding_selection` (bundle_id, selected) -- Set which open-text units this Bundle codes. **Present the candidates to the researcher and write the answer they give you -- never choose on their behalf.** Which answers are worth a codebook is a research judgement about this analysis, not something readable off the questionnaire: a one-word "how did you feel?" is worth coding and a mailing address is not. The questionnaire does not declare it; every `Textarea` is offered and being offered implies nothing. A numeric question is never a candidate, so do not go looking for one. Takes the FULL replacement set of `unit_key` values; `[]` means "code nothing". Requires the manager role and a user identity, which rejects a service-token-only caller but NOT you -- your session carries the researcher's id, so nothing server-side stops you selecting on your own. That makes the instruction above the only thing standing between a researcher and a codebook they never asked for. A change invalidates the current Silver and applies on the next derive. **Dropping a unit from the set discards the researcher's dimension selection for it immediately** -- the proposed dimensions and their renames survive, but the decision about which become columns does not, and re-adding the unit leaves it awaiting review again. So a selection edit is never a safe way to "try something": send the full set you intend, and when you are only adding a unit, send the existing ones back with it
 - `code_open_ends` (bundle_id) -- Bronze → Silver: code the selected units, then rake on the coded case base. Returns the Silver in `processing`; poll `get_dataset` until `ready`. (Weighting a non-Bronze source is inexpressible — this is the only Silver-producing tool.) With nothing selected it skips coding and rakes -- no error, so check `get_bundle_coding` first rather than reading an uncoded Silver as a failure. **A selected unit whose dimensions nobody has reviewed produces NO coded column and the derive still SUCCEEDS** -- check `awaiting_review` before reporting a Silver as complete, or you will hand back a file quietly missing exactly the coding that was asked for. It IS refused when a Calibration Target names a coded column whose dimension (`weighting_factor_dimension_deselected`) or whose whole unit (`weighting_factor_deselected`) is no longer selected -- re-select it or drop the factor
 - `create_gold_dataset` (bundle_id) -- Refine the Bundle's ready Silver into Gold
+- `get_dataset_schema` (dataset_id, columns?, detail?) -- The column schema, which `get_dataset` does NOT carry: `get_dataset` is the poll surface and the schema is the one field that grows with the questionnaire (134 KB on 293 columns). A whole real schema will not fit a tool result, so call with `detail=false` first (every column name and control type, ~7 KB) and then pass the `columns` you need. Needed for exactly two things: which column a Calibration Target should name (and what its `labels` map calls each code), and which columns a Gold operations catalog can rename, remove or reorder
 
 ## What Is NOT Available (Use Reasoning Instead)
 

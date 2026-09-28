@@ -128,7 +128,7 @@ concluding the project does not exist.
 **Sealed organizations.** Some organizations are sealed — a curated demo,
 or a former customer's data kept for its retention window. You can switch
 into one and read everything; any attempt to write is refused with
-`org_read_only`. `list_organizations` marks them, so you can tell before you
+`org_sealed`. `list_organizations` marks them (`sealed: true`), so you can tell before you
 try.
 
 ## 5. Revoke an approved client

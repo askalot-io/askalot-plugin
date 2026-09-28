@@ -109,11 +109,15 @@ in this campaign and report which ones have inconsistent answers",
 
 1. Authenticate the sandbox's REST calls with a **scoped API token**
    (`aslat_...`, minted via Profile Settings — see the `askalot-setup`
-   skill), not by extracting your interactive session's live OAuth
-   bearer token into generated code. A minted API token is a separate,
-   revocable credential purpose-built for non-interactive REST callers;
-   your OAuth session token authorizes your MCP connection and should
-   stay there.
+   skill), in the `X-Api-Token` header. Not a preference: the sandbox
+   holds no credential of its own that reaches `/api/v1` — no service
+   token by design, its IPC token authenticates the other direction,
+   and its access token is public and rotates when you switch projects.
+   A minted token is also separately revocable, which a session token
+   is not. (REST does accept an OAuth bearer, and a program that holds
+   its own token may use it — that is a different caller; see
+   "Choosing MCP or REST" in `api/mcp.md`, reachable through
+   `get_documentation`.)
 2. Discover the REST surface via `/api/v1/docs` (Swagger UI) or
    `/api/v1/openapi.json` — every entity has REST CRUD, and the bulk
    endpoints (`bulk_create_respondents`, `bulk_delete_respondents`,
@@ -170,6 +174,21 @@ instead of hand-rolling a loop:
   coding+raking job for a Bundle; returns the Silver dataset row in
   `processing`.
 
+Two of those jobs are also reachable as whole chains, each one call that runs
+the same registered tools in order and returns a `task_id` to poll with
+`get_task_status`:
+
+- **`simulate_campaign_responses`** — `bulk_create_surveys` then
+  `mass_fill_surveys`.
+- **`run_bundle_pipeline`** — `create_bronze_dataset`, `code_open_ends`,
+  `create_gold_dataset`. Only the Bronze and the derive's enqueue happen during
+  the call; Gold runs on Portor's own queue once the Silver is `ready`.
+
+A composite refuses the WHOLE chain when the caller cannot afford a later step,
+rather than handing back a half-built result, and reports `stopped_at_step` when
+one does stop. Nothing unwinds — what earlier steps built stays built, so you
+resume by calling the remaining tools yourself.
+
 Never substitute a hand-written sequence of dozens of individual MCP
 calls for one of these enqueue tools — the enqueue exists precisely
 because the underlying work is bulk-shaped.
@@ -181,8 +200,13 @@ task_id from one is meaningless to the other tool.
 
 | Surface | Poll tool | Backs | Terminal states | Cadence |
 |---|---|---|---|---|
-| **task-status** | `get_task_status(task_id)` | Mass-fill jobs: `mass_fill_surveys` | `completed`, `partial`, `failed` | Response carries `suggested_poll_interval_seconds` — a `[2, 30]`s heuristic hint while pending/running, `null` once terminal |
-| **dataset-status** | `get_dataset(dataset_id)` | Pipeline jobs: `code_open_ends`/`derive_silver`, `create_bronze_dataset`, `create_gold_dataset` | `ready` (via `processing_status`) | No computed hint — poll every few seconds |
+| **task-status** | `get_task_status(task_id)` | Mass-fill jobs (`mass_fill_surveys`) and chain runs (`run_bundle_pipeline`, `simulate_campaign_responses`) | `completed`, `partial`, `failed` | Response carries `suggested_poll_interval_seconds` — a `[2, 30]`s heuristic hint while pending/running, `null` once terminal |
+| **dataset-status** | `get_dataset(dataset_id)` | Individual pipeline STAGES called by hand: `code_open_ends`/`derive_silver`, `create_bronze_dataset`, `create_gold_dataset` | `ready` (via `processing_status`) | No computed hint — poll every few seconds. Bounded: the column schema is on `get_dataset_schema`, not here |
+
+A chain run's poll response carries two fields a single-stage run leaves
+`null`: `step`, the chain step the run reached — and for a failed run the step
+it stopped at, so you never have to parse that out of `status_text` — and
+`result`, the run's own outputs (for a Bundle pipeline, each stage's dataset id).
 
 `partial` (task-status only) means a bulk task finished with a mixed
 succeeded/failed outcome (e.g. 480 of 500 surveys filled) — its result

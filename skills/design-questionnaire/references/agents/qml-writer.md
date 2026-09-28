@@ -236,8 +236,9 @@ resolve to one of:
 - a **must-produce** variable you assign in this chapter.
 
 A bare name that resolves to none of these is a phantom — the predicate namespace is
-closed, so it fails open at runtime and is invisible to the validator, and the
-intended logic enforces nothing. Conversely, every must-produce variable in your
+closed, so the predicate raises at runtime (a precondition then skips its item, a
+postcondition accepts the answer unchecked) and Z3 sees a free symbol, so the intended
+logic enforces nothing. Conversely, every must-produce variable in your
 slice must actually be produced by a codeBlock in this chapter; a must-produce you
 never assign becomes a frozen variable for every downstream consumer.
 

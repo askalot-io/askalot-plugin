@@ -257,7 +257,8 @@ measurable, not a vibe check. Do not save until every check passes:
   restates its control's own `min`/`max` validates nothing — remove it.
 - **Validator findings are fix-items, not noise.** Errors (undefined name,
   frozen-gate dead code) block saving outright. Warnings (write-only variable,
-  pass-through alias, duplicate-input-bound) are defects too — fix or consciously
+  pass-through alias, duplicate-input-bound, none-unsafe reference,
+  questionnaire-level condition) are defects too — fix or consciously
   waive each one; loop on `validate_qml_file` until errors are zero and every
   warning is understood.
 
@@ -445,8 +446,15 @@ than guessing, and anything not in that vocabulary is rejected as
 
 The Manager owns `target_audience`, `sampling_strategy`,
 `respondent_pool_quality`, `data_collection_plan` and `data_collection`; the
-Analyst owns the Studies and `data_quality_assessment`. Do not write into
-theirs — their content arrives on its own path with its own attribution.
+Analyst owns the per-Bundle Studies, `coding_and_weighting` and
+`data_quality_assessment`. Do not write into theirs — their content arrives on
+its own path with its own attribution.
+
+`abstract`, `discussion` and `conclusion` are listed above as yours, and they
+are — at design time. They are **also the Analyst's**: it rewrites all three at
+the retrospective through its host write path, so a body you did not author is a
+current answer somebody else gave, not stale text of yours. The read-before-edit
+token is what stops you overwriting a retrospective you never read.
 
 ### Research phase — accrete per turn
 
