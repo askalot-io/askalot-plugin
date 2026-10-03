@@ -1,6 +1,6 @@
 ---
 name: mcp-survey-tools
-description: Use when completing a survey as a respondent. Covers get_survey_current_item (returns current step with folded options), submit_survey_response, and finish_survey tools.
+description: Use when completing a survey as a simulated respondent (a preview or synthetic run). Covers get_survey_current_item (returns current step with folded options), submit_survey_response, and finish_survey tools.
 ---
 
 # MCP Survey Completion Tools Reference
@@ -10,6 +10,8 @@ description: Use when completing a survey as a respondent. Covers get_survey_cur
 **Covers**: Survey navigation and response submission via Portor MCP server.
 
 **Does not cover**: Campaign management, sampling strategy, quality assessment.
+
+**Simulated respondents only.** These tools walk previews and synthetic test runs. They never answer for a real person: the server refuses them on a survey that has been sent to a respondent. A real respondent who wants to take their survey with an AI assistant connects their own assistant to the survey's respondent connector (`/respond/mcp`), and there the respondent clicks every answer themselves.
 
 ## Available Tools
 

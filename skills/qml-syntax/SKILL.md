@@ -291,13 +291,21 @@ Every Question, QuestionGroup, and MatrixQuestion MUST have an `input` block. Th
 - **Label-based controls** (Radio, Dropdown, Checkbox): require `labels` mapping integer keys to display text
 - **Switch**: requires `on` and `off` display text
 
+**`default` is a hint, never an answer.** The renderer shows it — a marked
+Radio option, the Dropdown's placeholder, the Editbox's placeholder, the resting
+position of a Slider or Range thumb — but records nothing until the respondent
+interacts: Next on an untouched item stores no answer (`None`). So do not use
+`default` to make an item "pre-answered", and do not rely on it to satisfy a
+postcondition; a required answer is a postcondition's job, and "none of these"
+is a declared option, not an untouched Checkbox.
+
 #### 4.1 Switch (Binary Choice)
 ```yaml
 input:
   control: Switch
   on: "Yes"
   off: "No"
-  default: 0  # Optional: 0 for off, 1 for on
+  default: 0  # Optional, not rendered: a Switch starts on neither side
 ```
 
 The outcome is `1` for `on` and `0` for `off`. `on`/`off` is the spelling the JSON
@@ -315,7 +323,7 @@ input:
     1: "Option 1"
     2: "Option 2"
     3: "Option 3"
-  default: 1  # Optional: must be a key from labels
+  default: 1  # Optional hint: must be a key from labels
 ```
 
 #### 4.3 Checkbox (Multiple Selection)
@@ -327,7 +335,7 @@ input:
     2: "Option B"   # Binary value: 2
     4: "Option C"   # Binary value: 4
     8: "Option D"   # Binary value: 8
-  default: 0  # Optional: bit mask of selected options
+  default: 0  # Optional, not rendered: every box starts unticked
 ```
 
 #### 4.4 Dropdown (Single Selection from List)
@@ -351,7 +359,7 @@ input:
   max: 100
   left: "I am"
   right: "years old"
-  default: 25  # Optional: must be between min and max
+  default: 25  # Optional hint: must be between min and max
 ```
 
 #### 4.6 Slider (Visual Range Selection)

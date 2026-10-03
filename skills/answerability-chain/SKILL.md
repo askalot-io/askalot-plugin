@@ -92,7 +92,12 @@ answers each goal:
    answers. **Do not** invent a per-item "this can be coded" claim: coding
    is a per-Bundle analysis choice a researcher makes in Balansor, not a
    property of the questionnaire, and nothing you can read off the QML
-   tells you what was chosen.
+   tells you what was chosen. The same holds for what a free-text item
+   holds: `get_bundle_coding`'s `kinds` records the researcher's
+   classification (descriptive, nominal or identifier), an unclassified or
+   identifier unit cannot be coded, and you cannot classify one. Report an
+   unclassified candidate as a gap for the researcher to close, not as a
+   finding about the item.
 
 ## Reading the verdict
 

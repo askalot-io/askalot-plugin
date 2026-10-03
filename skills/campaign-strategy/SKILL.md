@@ -369,8 +369,8 @@ mapping to ground your advice in what can actually be measured.
 | Design effect (DEFF) | 1 + CV²(weights), included in weighting diagnostics | `code_open_ends` → Silver raking diagnostics |
 | Effective sample size | n / DEFF | Included in weighting diagnostics |
 | Response quality | Entropy, straightlining, Cronbach's alpha, speeder detection | `get_bundle_quality` (Response Quality measure) |
-| Strategy factor design | Demographic factors with target distributions | `create_sampling_strategy` |
-| Pool generation | Greedy (error-minimizing) or random constrained (quota-based) selection | `generate_pool_from_strategy` |
+| Strategy factor design | Demographic factors with target distributions, plus how fit is graded (`quality_metric`) | `create_sampling_strategy` |
+| Pool generation | One draw from a strategy: `requested_size` (required), `oversample_factor`, greedy (error-minimizing) or random constrained (quota-based) `selection_algorithm`, `require_email`, `exclude_respondent_ids` -- stored on the pool, so one strategy feeds pools of any size | `generate_pool_from_strategy` |
 | The whole fielding chain | Strategy, pool, assignment, QML pin, surveys -- one call, capability-checked per step, stopping short of the send | `prepare_campaign_fielding` |
 | A campaign's synthetic responses | Surveys created, then filled -- returns a `task_id` | `simulate_campaign_responses` |
 
@@ -403,8 +403,8 @@ mail cannot be unsent -- so it is not something a chain should do on your behalf
 ### Practical Advice Pattern
 
 When advising on campaign design without adaptive optimization tools:
-1. **Over-sample hard-to-reach groups** by 20-30% using `oversample_factor` in strategy
-2. **Use greedy selection** (`selection_algorithm: greedy`) to maximize initial representativeness
+1. **Over-sample hard-to-reach groups** by 20-30% using `oversample_factor` on the pool draw (`generate_pool_from_strategy`); the strategy carries no draw setting
+2. **Use greedy selection** (`selection_algorithm: greedy`, the draw's default) to maximize initial representativeness
 3. **Check quality at milestones** (25%, 50%, 75% completion) via `get_bundle_quality`
 4. **Apply raking** post-collection to correct residual imbalances
 5. **Report DEFF** alongside sample size so the user understands effective precision
