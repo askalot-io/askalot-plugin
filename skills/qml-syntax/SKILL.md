@@ -158,7 +158,7 @@ questionnaire:
 
     - id: per_meal
       kind: Roster
-      iterateOver: "q_meals_eaten.outcome"
+      iterateOver: q_meals_eaten.outcome
       labels:
         1: "Breakfast"
         2: "Lunch"
@@ -187,7 +187,7 @@ the static label instead of the thing it is about.
 ```yaml
 - id: b_household_members
   kind: Roster
-  iterateOver: "person_mask"
+  iterateOver: person_mask
   subjectFrom: q_member_name
   labels:
     1: "Person 1"

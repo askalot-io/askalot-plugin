@@ -64,14 +64,26 @@ almost always lane 3 or lane 4.
 
 ## Lane 2: byte transfer via presigned handles
 
-**Write path (QML content)**: `save_qml_file`'s inline threshold is 32 KB
-(`INLINE_THRESHOLD_BYTES`). Above it, the call is refused with
+**Write path (QML content)**: a save names the version it was written from.
+`base_version_id` on `save_qml_file` and on `finalize_upload` is the
+`version_id` of your most recent `get_qml_content`, `create_questionnaire` or
+save answer for that questionnaire, never an earlier one, together with the
+content that answer describes. If someone else saved in between, changes to
+different lines are merged (the answer says `merged` and `content_changed`,
+and its `content` replaces your copy); changes to the same lines write
+nothing and answer `overlap`: call `get_qml_content`, re-apply your change to
+what it returns, and save with its `version_id`. Never resend the same
+content under a newer id.
+
+`save_qml_file`'s inline threshold is 32 KB (`INLINE_THRESHOLD_BYTES`),
+whatever `base_version_id` it names. Above it, the call is refused with
 `content_too_large_for_inline_save` — never trim or drop content to fit
 under the threshold. Use the handle recipe below instead.
 
 **Read path (QML content)**: `get_qml_content` is the read-side mirror —
 above the same 32 KB threshold it returns a short-lived signed
-`download_url` instead of inlining the YAML.
+`download_url` instead of inlining the YAML. Either way it answers the
+head's `version_id`, the base a save of that content names.
 
 **Read path (dataset exports)**: `export_dataset` always returns a
 presigned `download_url` (never inlines file bytes) — fetch it directly
@@ -85,13 +97,16 @@ over HTTPS once the export completes.
 2. `PUT` the raw QML bytes to `upload_url` over HTTPS, out-of-band —
    any HTTP-capable tool works (Claude Code's own request capability is
    enough); the content never appears in a tool argument or MCP context.
-3. `finalize_upload(artifact_id=...)` — lands the file with the exact
-   same warn-only validation / publish-gate re-check / atomic-write
-   guarantees as a normal `save_qml_file` call. Idempotent on retry.
+3. `finalize_upload(artifact_id=..., base_version_id=...)` — saves the
+   staged bytes exactly as an inline save of them on that base would:
+   landed, merged with a newer version, or refused. Idempotent on retry.
+   An `overlap` spends the handle: read again, re-apply your change, and
+   upload the result through a fresh handle with the new `version_id`.
+   `base_version_unknown` keeps the handle for a call with the right id.
 
 This requires HTTP egress from the calling agent. A pure-MCP hosted
 session with no egress capability cannot complete an above-threshold
-save at all — `save_qml_file`'s error names that limitation explicitly
+save at all — the inline save's error names that limitation explicitly
 rather than failing silently; reduce the content below the threshold, or
 drive the task from an egress-capable session instead.
 
@@ -243,6 +258,14 @@ gate it:
   that names `request_upload_url` + `finalize_upload` explicitly, plus a
   `detail` string that calls out the HTTP-egress requirement and the
   Claude-Code-only posture for pure-MCP sessions without egress.
+- `save_qml_file` or `finalize_upload` with a `base_version_id` that is not
+  a version of the questionnaire → `base_version_unknown`, whose `detail`
+  says to call `get_qml_content` and save with the `version_id` it answers.
+  The live input schema marks `base_version_id` required and describes it.
+- A save whose lines someone else changed meanwhile → `overlap`, carrying
+  `head_version_id`, `head_version_number` and `conflict_count`; its
+  `detail` says to read again and re-apply, and not to send the same content
+  again.
 - `get_qml_content` above 32 KB → returns `download_url` with a `note`
   field explaining why content wasn't inlined and that the URL expires.
 - `export_dataset` → always returns `download_url` (never inlines file

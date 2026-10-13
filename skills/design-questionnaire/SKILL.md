@@ -48,7 +48,9 @@ phase" vs "design phase" anymore. The same conversation can:
   over and you never wholesale-overwrite a section you have not read.
 - *Generate the first QML questionnaire* for a topic — delegate to
   qml-planner (chapter plan) → qml-writer per chapter → call
-  ``validate_qml_file`` until Z3 reports no errors → ``save_qml_file``.
+  ``validate_qml_file`` until Z3 reports no errors → ``save_qml_file``
+  with the ``base_version_id`` of the version you read (see *Saving a
+  questionnaire*).
 - *Regenerate missing sections of an existing questionnaire* — re-run
   qml-writer for the missing chapters only. Validate the assembled
   output before saving.
@@ -199,15 +201,19 @@ base for reverse-coded items?" — consult the shared methodology library via
    complete QML document, then run the Pre-Save Audit below and loop on
    `validate_qml_file` until errors are zero. Fix any issues.
 
-6. **Save** — use `save_qml_file` to write the validated QML. Never trim or
+6. **Save** — write the validated QML as *Saving a questionnaire* below
+   says: `save_qml_file(qml_name=..., content=..., base_version_id=...)`,
+   where `base_version_id` is the `version_id` of your most recent read or
+   save answer for that questionnaire. Never trim or
    drop items to make a large corpus file fit: content above 32 KB is
    refused with `content_too_large_for_inline_save` instead of being
    written. When that happens, use the upload-handle lane instead:
    `request_upload_url(qml_name=..., project_id=...)` to mint a handle,
    PUT the raw QML bytes to the returned `upload_url` over HTTPS (any
    HTTP-capable tool — Claude Code's own request capability is enough),
-   then `finalize_upload(artifact_id=...)` to land the file with the same
-   validation/publish-gate guarantees as a normal save. This requires HTTP
+   then `finalize_upload(artifact_id=..., base_version_id=...)` to save
+   them exactly as an inline save would, against the same base. This
+   requires HTTP
    egress — a pure-MCP hosted session with no egress cannot complete an
    above-threshold save at all; the error names that limitation explicitly.
    See the `gateway-routing` skill for the full lane-selection framework
@@ -223,18 +229,52 @@ base for reverse-coded items?" — consult the shared methodology library via
 ### When the customer asks for changes to existing QML:
 
 Do NOT delegate to sub-agents. Handle refinements directly:
-- Read the existing QML via MCP tools
-- Apply the requested changes
-- Validate and save
+- Read the existing QML with `get_qml_content` and keep its `version_id`
+- Apply the requested changes to the content it answered
+- Validate, then save on that `version_id` (see *Saving a questionnaire*)
 
 ### When the customer wants to discuss before committing:
 
 Stay conversational. Use your own knowledge and MCP document tools to explore.
 Only delegate to sub-agents when you're ready for structured output.
 
+## Saving a questionnaire
+
+A save names the version it was written from. A researcher can save the same
+questionnaire while you work, and a save that named no version would replace
+theirs. The rules:
+
+- **Read first.** Before composing a save, call `get_qml_content` and keep
+  its `version_id` together with the content it answered. For a
+  questionnaire you just made, `create_questionnaire` answers the
+  `version_id` of the content you gave it.
+- **Name the latest version.** `base_version_id` on `save_qml_file` (and on
+  `finalize_upload`) is the `version_id` of your most recent read or save
+  answer for that questionnaire, never an earlier one, and only together with
+  the content that answer describes. After a save, your next save names the
+  `version_id` that save answered. Naming your first base again would treat
+  your own first save as someone else's.
+- **A merged answer replaces your copy.** When someone else saved in between
+  and the two changes touch different lines, the server merges them and
+  answers `merged` and `content_changed` with the stored `content`. Continue
+  from that content, not from what you sent. When the stored content was too
+  large to ride along, call `get_qml_content` before your next edit.
+- **Lines you did not write are the researcher's.** Lines that arrive in a
+  `content_changed` answer and that you did not write are the researcher's.
+  Do not edit or remove them to clear validation findings; report the
+  findings to the customer instead.
+- **On `overlap`, read again and re-apply.** Nothing was written: both of you
+  changed the same lines. Call `get_qml_content`, apply your change to the
+  content it answers, and save with its `version_id`. Never resend the same
+  content under a newer id; that would replace the researcher's change.
+  `base_version_unknown` is handled the same way: read, then save.
+- **A whole-instrument regeneration asks first.** When a regenerated
+  questionnaire meets an `overlap`, read the head, tell the customer what
+  their version holds, and replace it only on their instruction.
+
 ## Pre-Save Audit
 
-Before `save_qml_file`, run this concrete audit over the assembled QML — it is
+Before saving, run this concrete audit over the assembled QML — it is
 measurable, not a vibe check. Do not save until every check passes:
 
 - **Zero bare names.** Every identifier in every precondition, postcondition, and
@@ -545,7 +585,7 @@ edit, not for you to act on.
 ## Two-tier output
 
 The **full artifacts are the saved QML and the persisted brief** — written to
-Portor via `save_qml_file` and the `read_paper`/`edit_paper_unit` pair. Those are the
+Portor via `save_qml_file` (see *Saving a questionnaire*) and the `read_paper`/`edit_paper_unit` pair. Those are the
 durable record. The conversation timeline is recorded for you by the Armiger
 host in-process (it wraps every turn with its own run/event/close writes, which
 carry token/cost data the MCP tools cannot) — you do NOT call the
