@@ -1,10 +1,11 @@
 # QML Complex Type Examples
 
-Realistic examples demonstrating QuestionGroup and MatrixQuestion with
-preconditions on vector/matrix elements, postconditions with constraints,
-and codeBlock for dynamic logic.
+Examples of QuestionGroup and MatrixQuestion with preconditions on
+vector/matrix elements and postconditions over them. Each block list below was
+loaded through the validator; the comments say which conditions Z3 verifies and
+which are enforced at runtime only.
 
-## Example 1: Employee Satisfaction (QuestionGroup + codeBlock + constraints)
+## Example 1: Employee Satisfaction (QuestionGroup + constraints)
 
 ```yaml
 - id: satisfaction_assessment
@@ -23,30 +24,25 @@ and codeBlock for dynamic logic.
         control: Slider
         min: 1
         max: 10
-      codeBlock: |
-        # Supported subset only: int() casts + explicit addition. A code block
-        # CANNOT build lists of strings, use len()/comprehensions, or format
-        # messages (f-strings / print) — those are invisible to the sandbox.
-        # Count how many aspects were rated below 5, for downstream routing.
-        problem_count = (int(job_aspects.outcome[0] < 5) + int(job_aspects.outcome[1] < 5)
-                         + int(job_aspects.outcome[2] < 5) + int(job_aspects.outcome[3] < 5)
-                         + int(job_aspects.outcome[4] < 5))
 
-    # Conditional follow-up when any aspect rated below 5. Presentation (which
-    # areas, phrased as prose) is the UI's job, not a code block — the item is
-    # simply gated on the precondition.
+# Conditional follow-ups when any aspect rated below 5. Both share one gate, so
+# they form their own block carrying it once. The gate reads the answers in the
+# condition itself: a codeBlock that counted the low ratings into a variable
+# would not be verified (a codeBlock read of QuestionGroup answers is
+# runtime-only), and presentation (which areas, phrased as prose) is the UI's
+# job, not a code block.
+- id: satisfaction_followup
+  precondition:
+    - predicate: any([job_aspects.outcome[j] < 5 for j in range(5)])
+  items:
     - id: followup_needed
       kind: Comment
       title: "Additional feedback needed"
-      precondition:
-        - predicate: any([job_aspects.outcome[j] < 5 for j in range(5)])
 
     # Allocate 100 points with sum constraint
     - id: improvement_allocation
       kind: QuestionGroup
       title: "Allocate 100 points across areas for improvement"
-      precondition:
-        - predicate: any([job_aspects.outcome[j] < 5 for j in range(5)])
       questions:
         - "Points for Work-life balance"
         - "Points for Compensation"
@@ -58,15 +54,17 @@ and codeBlock for dynamic logic.
         min: 0
         max: 100
       postcondition:
-        - predicate: sum(improvement_allocation.outcome) == 100
+        # Read each answer by index: sum(improvement_allocation.outcome) over the
+        # whole list is runtime-only. Non-negativity is already min: 0.
+        - predicate: sum([improvement_allocation.outcome[j] for j in range(5)]) == 100
           hint: "Points must sum to exactly 100"
-        - predicate: all([improvement_allocation.outcome[j] >= 0 for j in range(5)])
-          hint: "All values must be non-negative"
 ```
 
-**Patterns shown:** QuestionGroup with Slider, precondition on vector elements
-(`outcome[j] < 5`), codeBlock tracking state across items, postcondition with
-sum constraint, allocation pattern.
+**Patterns shown:** QuestionGroup with Slider, a block-level precondition on vector
+elements (`outcome[j] < 5`) gating the follow-ups once, postcondition with a sum
+constraint (allocation pattern). Both conditions are lowered to Z3 and reported as
+`inexact_condition`, because an unanswered slot makes the comparison or the sum
+raise; see "Unanswered cells" in `matrix-constraint-patterns.md`.
 
 ## Example 2: Product Comparison (MatrixQuestion + derived calculations)
 
@@ -185,7 +183,12 @@ code block — it is outside the supported subset.
           2: "Second most important"
           3: "Least important"
       postcondition:
-        - predicate: len(set(attribute_ranking.outcome)) == 3
+        # Pairwise != is verified; len(set(attribute_ranking.outcome)) == 3 says
+        # the same and is runtime-only.
+        - predicate: |
+            (attribute_ranking.outcome[0] != attribute_ranking.outcome[1]
+             and attribute_ranking.outcome[0] != attribute_ranking.outcome[2]
+             and attribute_ranking.outcome[1] != attribute_ranking.outcome[2])
           hint: "Each attribute must have a unique rank"
 
     # Scalar gated by matrix cell value via dynamic index
@@ -194,7 +197,7 @@ code block — it is outside the supported subset.
       title: "Rate improvement priority for the weakest attribute"
       precondition:
         # Dynamic index (best_product.outcome-1) is a runtime value, so this
-        # min-fold is runtime-enforced only (a coverage_gap), not Z3-verified.
+        # min-fold is runtime-enforced only (`skipped_condition`), not Z3-verified.
         - predicate: |
             min([product_ratings.outcome[best_product.outcome-1][j]
                  for j in range(3)]) < 4

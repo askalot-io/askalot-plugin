@@ -73,7 +73,8 @@ manifests as:
 
 **Mitigation strategies:**
 - Place the most important questions in the first half
-- Use adaptive routing to keep individual survey length under 15 minutes
+- Use adaptive routing to keep each respondent's path short (under 15
+  minutes where possible; 20 minutes is the ceiling, see the thresholds above)
 - Vary question formats to maintain engagement (don't stack grids)
 - Place engaging or novel questions at natural fatigue points
 
@@ -114,12 +115,14 @@ response times vary by question type:
 | Yes/No (Switch) | 8-15 seconds | < 3 seconds |
 | Single-select (Radio, 4-5 options) | 12-20 seconds | < 5 seconds |
 | Rating scale (Slider) | 10-18 seconds | < 4 seconds |
-| Numeric input (Number) | 12-20 seconds | < 5 seconds |
+| Numeric input (Editbox) | 12-20 seconds | < 5 seconds |
 | Matrix row | 6-12 seconds/row | < 2 seconds/row |
 | Open-ended text | 30-90 seconds | < 10 seconds |
 
 These are rough benchmarks. Actual times depend on question complexity,
-response option count, and respondent characteristics.
+response option count, and respondent characteristics. The platform's own
+speeder flag is survey-level, not per item: a completed survey whose
+answering time is below one third of the cohort median.
 
 **Page-level speeding** (all items on a page answered too fast) is
 more reliable than item-level speeding for identifying disengaged
@@ -154,11 +157,13 @@ Use sparingly — they can annoy attentive respondents.
 When the instrument must be long, combine multiple strategies:
 
 1. **Adaptive routing** (most impactful): ensure each respondent only
-   sees relevant questions. Target 15-20 minutes of actual questions.
+   sees relevant questions. Keep each path under 20 minutes of actual
+   questions, and under 15 where the design allows.
 
 2. **Format variety**: alternate between question types (Switch, Radio,
-   Slider, Number) to prevent monotony. Never stack more than 2
-   matrix/grid questions consecutively.
+   Slider, Editbox) to prevent monotony. Never place two matrix/grid
+   questions back to back (`question-ordering.md`: 2-3 non-grid items
+   between grids).
 
 3. **Engagement anchors**: place interesting or personally relevant
    questions at the 1/3 and 2/3 points to re-engage fatigued
@@ -175,3 +180,5 @@ When the instrument must be long, combine multiple strategies:
 
 7. **Save demographics for last**: simple factual questions (age,
    education, income) tolerate fatigue well and serve as a cool-down.
+   An attribute that routing needs is the exception and is asked in the
+   screening block, before what it gates.

@@ -1,7 +1,6 @@
 ---
 name: kb-quality-metrics
 description: Pointer to the public quality-metrics reference at docs.askalot.io/guide/quality-metrics-reference. Use when an agent or CLI user needs the canonical definitions and interpretation thresholds for RMSE, MAE, Chi-Square, Max Deviation, and Quality Score in survey datasets.
-disable-model-invocation: false
 ---
 
 # Quality Metrics Reference

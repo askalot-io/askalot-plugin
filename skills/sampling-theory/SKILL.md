@@ -90,9 +90,10 @@ explain the tradeoff.
 > the design effect anticipated under a specific sampling plan."
 > (heeringa2010applied, p.~45)
 
-**FPC caveat.** Apply $(1-n/N)$ only when $n/N > 0.05$; below that the
-correction is negligible and adds arithmetic without insight
-(heeringa2010applied, p.~41).
+**FPC caveat.** By hand, apply $(1-n/N)$ only when $n/N > 0.05$; below that
+the correction is negligible (heeringa2010applied, p.~41). `plan_sample_size`
+applies it to margin goals whenever you pass `population_size`, so leave that
+input out when the eligible population is unknown.
 
 ---
 
@@ -232,21 +233,34 @@ naive SEs as headline findings — they will be wrong.
 
 ## 6. Decision flowchart for the Askalot platform
 
-Given a brief from the customer:
+Given a brief from the customer (for a Project, start with *Sizing a
+Project* below: the evidence and the saved plan come first):
 
 1. **Frame audit.** Is the frame a clean list, a panel, or inferred?
    Web panels are convenience samples — weighting can reduce bias but
    never eliminates selection effects entirely.
 2. **Precision requirement.** Half-width $d$ on what estimator, for
-   what subgroup, at what confidence? Start from $n_{\mathrm{SRS}}$
-   and inflate.
+   what subgroup, at what confidence? The formulas below explain the
+   arithmetic; do not do it by hand. Give `plan_sample_size` the goal
+   targets and it returns the completes needed, the oversample factor and
+   the number to invite.
 3. **Subgroup requirements.** Does the customer care about
    subgroups? If yes — stratify and oversample. Budget the
    $L_w \approx cv^2(w)$ variance cost into the sample-size plan.
-4. **Pick a DEFF anticipation.** Default 1.5 for
-   lightly-stratified panel; 2.0+ for oversampling; 3.0+ if
-   clustering is unavoidable.
-5. **Compute $n$.** $n = n_{\mathrm{SRS}} \cdot D^2$.
+4. **Pick a DEFF anticipation.** For a Project, take it in the order
+   `references/sizing-proposal.md` gives: the newest Study's results block,
+   then the paper's sampling text, then a library figure, then the textbook
+   default of 1.0. With none of those and a design you know will lose
+   precision, propose 1.5 for a lightly-stratified panel, 2.0+ for
+   oversampling, 3.0+ if clustering is unavoidable, as a value the user
+   confirms, never tagged `textbook_default`.
+5. **Compute $n$.** $n = n_{\mathrm{SRS}} \cdot D^2$ is what
+   `plan_sample_size` computes (normal approximation, two-sided, per-goal
+   completes rounded up before $D^2$ is applied). Call it with the goals'
+   targets, `eligibility_rate`, `response_rate` and `design_effect`; all
+   three are required, and a past wave's design effect comes from the newest
+   Study's results block, never from a Bundle. Saving the plan is the user's
+   decision (*Sizing a Project*, step 6).
 6. **Plan weighting from the start.** Which frame variables drive
    design weights? Which external benchmarks will support
    post-stratification / raking? Targets must be defensible and
@@ -257,7 +271,58 @@ Given a brief from the customer:
 
 ---
 
+## Sizing a Project: the evidence and the saved plan first
+
+Before giving sizing or fielding advice on a Project:
+
+1. **Read what the plan rests on.** Call `get_sizing_evidence(project_id,
+   strategy_id?)`: each goal with its own passage, the `target_audience` and
+   `sampling_strategy` text, the newest non-stale Study's results block (the
+   last wave's yield, design effect and each KPI's usable responses, observed
+   share or spread and achieved margin) with that Study's *Across waves*
+   passage, and with a Strategy its factor shares and eligible frame. It
+   reads no campaign, survey or Bundle: a past wave speaks only through the
+   paper. Call `plan_sample_size(project_id, ...)` too: its
+   `saved` record holds the saved targets, their planning context and each
+   value's `provenance` (source, citation, whether it needs confirmation, who
+   confirmed it). A saved plan is where you start; say what you would change
+   and why, rather than proposing from scratch.
+2. **Propose by the shared rules** in
+   [references/sizing-proposal.md](references/sizing-proposal.md): the source
+   tags, how a target is read from a goal's prose, the newest Study's
+   results block before the library before a textbook default, and the
+   defaults table. Each goal is sized on its own and the largest need sets
+   the size; a KPI that only part of the completes answer (a question asked
+   only of car owners) is sized through its group share, a Strategy factor's
+   or, for a group no factor holds, the share the paper states (a `paper:`
+   key, always *check this*), so it needs more completes. Follow that
+   file, not this skill's rules of thumb, so you and the planner's own
+   proposal reason from the same evidence by the same rules.
+3. **Ground the library values.** Search the methodology library
+   (`search_methodology_library`, e.g. "response rate by survey mode",
+   "design effect cluster sampling") and cite each passage you use by author,
+   year and the `paper_id` the result names for its chunk; that is the
+   `library` tag's citation.
+4. **Show the numbers.** Run `plan_sample_size` on the values, so the user
+   sees completes and invites with every value's tag.
+5. **Confirm only what the user says.** Both rates, every group share and
+   every value marked `needs_confirmation` (*check this*) are the user's
+   decision. Ask. Mark a value `confirmed_via: "agent"` in the
+   `save_sizing_targets` provenance only when the user has stated or accepted
+   that value in this conversation, never on your own judgement; the save
+   records the user as the one confirming it and is audited. A save with an
+   unconfirmed value is refused, naming it.
+6. **Save on request.** Call `save_sizing_targets` when the user asks to
+   save, with `base_revision` set to the `revision` `plan_sample_size`
+   returned (a stale one is a conflict: read again and re-apply). The save
+   also writes the paper's "Sample size" block. The researcher can review the
+   saved plan on the Size Planner page in Targetor.
+
+---
+
 ## Worked example — oversampling young adults
+
+The arithmetic below is illustration; for a real Project pass the same goals to `plan_sample_size`.
 
 Customer: 3,000-respondent online survey, US general adults, wants
 95% CI half-width 3% on a headline proportion but 4% on 18–24 adults
@@ -268,11 +333,12 @@ Customer: 3,000-respondent online survey, US general adults, wants
    0.25 / 0.04^2 \approx 600$ young-adult completes.
 3. If we allocate proportionally, 12% of 3,000 = 360 — not enough.
 4. Oversample 18–24 to get 600 completes; that's 20% of the sample
-   vs 12% of the population. $cv^2(w) \approx
-   (0.20/0.12 - 1)^2 \cdot 0.12 + (0.80/0.88 - 1)^2 \cdot 0.88 \approx 0.057$
+   vs 12% of the population. The weights are $0.12/0.20 = 0.6$ for young
+   adults and $0.88/0.80 = 1.1$ for everyone else (mean 1), so
+   $cv^2(w) = 0.20 \cdot 0.6^2 + 0.80 \cdot 1.1^2 - 1 = 0.04$
    — a modest weighting loss.
 5. Effective sample size for headline estimates
-   ≈ $3000 / 1.06 \approx 2,830$. Tell the customer up-front.
+   ≈ $3000 / 1.04 \approx 2,885$. Tell the customer up-front.
 
 ---
 
@@ -280,7 +346,7 @@ Customer: 3,000-respondent online survey, US general adults, wants
 
 | Customer asks… | Answer this way |
 |---|---|
-| "How many respondents do I need?" | Start from SRS for target precision, inflate by expected DEFF, call out subgroup requirements. |
+| "How many respondents do I need?" | For a Project, read `get_sizing_evidence` and the saved plan first (*Sizing a Project*); then call `plan_sample_size` (SRS precision inflated by DEFF, subgroup and two-group goals included), explain its justification, and call out subgroup requirements. |
 | "Why is the subgroup estimate wobbly?" | Effective sample size for that subgroup — show $n_{\mathrm{eff}}$. |
 | "Is raking doing anything?" | Compare Bronze vs Silver quality metrics on the raked factors. If RMSE went up, the implementation is wrong. |
 | "Why can't we just ignore the weights for the regression?" | Naive SE underestimates variance under complex samples; use `svyglm` or equivalent. |

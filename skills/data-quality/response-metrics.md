@@ -49,16 +49,20 @@ These metrics address the **measurement error** dimension of the Total Survey Er
 - **Range**: 0 to 1
 - **Interpretation**:
   - < 0.05: Normal — most respondents answer
-  - 0.05–0.15: Moderate — question may be confusing or sensitive
-  - > 0.15: High — question should be reviewed for clarity or sensitivity
+  - 0.05–0.10: Monitor — question may be confusing or sensitive
+  - 0.10–0.20: Investigate wording, placement, or sensitivity
+  - > 0.20: Redesign the question or make it explicitly optional
 - **When useful**: Identifying problematic questions that respondents frequently skip
 
 ## Group Metrics (QuestionGroup, MatrixQuestion)
 
 ### Straightlining Score
-- **Formula**: Proportion of respondents giving the identical answer to ALL sub-items in a group
+- **Formula**: Proportion of respondents giving the identical answer to ALL items of a set
 - **Range**: 0 to 1
-- **Requirements**: 2+ sub-items in the group
+- **Sets compared**: the sub-items of one QuestionGroup or MatrixQuestion (2 or more), and a
+  run of 3 or more standalone questions with the same control and the same labelled scale of
+  3 or more options. A Range group or matrix is not compared. A questionnaire with no such
+  set reads `straightlining_state: not_applicable`, which is not the same as nobody straightlining
 - **Interpretation**:
   - < 0.05: Normal — some straightlining is expected
   - 0.05–0.15: Moderate — worth investigating question design
@@ -70,10 +74,10 @@ These metrics address the **measurement error** dimension of the Total Survey Er
 - **Range**: Theoretically -∞ to 1, practically 0 to 1
 - **Requirements**: 3+ numeric-encoded sub-items
 - **Interpretation**:
-  - < 0.5: Poor internal consistency — sub-items may not measure the same construct
-  - 0.5–0.7: Acceptable for exploratory research
-  - 0.7–0.9: Good internal consistency
-  - > 0.9: Excellent — but consider whether sub-items are redundant
+  - < 0.6: Poor internal consistency — sub-items may not measure the same construct
+  - 0.6–0.7: Marginal — acceptable for exploratory research or a multidimensional construct
+  - 0.7–0.8: Acceptable
+  - ≥ 0.8: Good internal consistency; above 0.9 consider whether sub-items are redundant
 - **When useful**: Validating that question groups intended to measure a single construct actually do so
 
 ## Dataset-Level Aggregates
@@ -96,6 +100,17 @@ These metrics address the **measurement error** dimension of the Total Survey Er
 - **Formula**: Mean of per-question non-response rates
 - **Interpretation**: Overall respondent engagement level
 
+### Speeders
+- **Rule**: a respondent whose answering time (the sum of their per-answer timings) is below
+  1/3 of the cohort's median. The cohort is the surveys with usable timing; `speeder_rate` is
+  speeders ÷ `speeder_cohort_size`, not ÷ all surveys
+- **Requirements**: 3 or more timed surveys; below that the speeder fields are null (not measured)
+
+### Multi-Flag Respondents ("baseball rule")
+- **Rule**: a respondent who collects all three flags: speeder; identical answers across every
+  item of any straightlining set; item non-response above 30% of the items they reached
+- **Interpretation**: the respondents to review first; a single flag alone is weak evidence
+
 ## Weight Awareness
 
 For Silver (weighted) datasets:
@@ -110,18 +125,22 @@ For Silver (weighted) datasets:
 |--------|-------------------|--------|
 | Normalized Entropy | < 0.3 | Review option balance, check for ceiling/floor effects |
 | Option Usage Ratio | < 0.5 | Consider merging or removing unused options |
-| Item Non-Response | > 0.15 | Review question wording, consider making optional explicit |
+| Item Non-Response | > 0.10 | Review question wording, consider making optional explicit |
 | Straightlining Score | > 0.15 | Add attention checks, vary response scales, shorten battery |
-| Cronbach's Alpha | < 0.5 | Review construct validity, consider removing weak items |
+| Cronbach's Alpha | < 0.6 | Review construct validity, consider removing weak items |
 | Acquiescence Index | > 0.6 | Add reverse-coded items, vary scale direction |
 
 ## Open-Ended Response Quality Metrics
 
+Askalot computes none of the metrics from here to the end of this file: the `response`
+measure holds only what the sections above describe. They are rubrics to apply by hand
+when you hold the raw responses.
+
 For surveys containing open-ended text responses, assess quality across multiple dimensions:
 
-### Informativeness (Information Content in Bits)
+### Informativeness
 
-Measures how much unique information is contained in an open-ended response relative to typical response variance.
+A 0-10 rating of how much usable information an open-ended response carries.
 
 **Framework**: Based on Gricean communication maxims (Xiao 2020):
 
@@ -132,7 +151,7 @@ Measures how much unique information is contained in an open-ended response rela
 - **Adequate** (5-20 words): Normal informativeness
   - Example: "I like the product because it works well and is affordable"
 - **Detailed** (20-50 words): High informativeness, shows engagement
-- **Over-elaborate** (> 80 words): May indicate confusion or off-topic rambling
+- **Over-elaborate** (> 50 words): May indicate confusion or off-topic rambling
 
 **Quality dimension** (accuracy and consistency):
 - **Self-contradictory** (conflicting statements within same response): Quality concern
@@ -154,7 +173,7 @@ Measures how much unique information is contained in an open-ended response rela
 **Scoring formula** (0-10 scale):
 ```
 Informativeness = base_score(word_count) + quality_adjustments + relevance_score + clarity_adjustment
-Adjusted to 0-10 scale
+Clamped to the 0-10 scale
 ```
 
 ### Response Length Variance as Engagement Proxy
@@ -248,7 +267,7 @@ Beyond Longest Identical String (LIS), detect other forms of non-differentiation
 
 ### Low Quality Red Flags (Multiple Indicators Present)
 
-- Straightlining score > 0.20 AND speeding (completion < 1/3 median) = Dismiss data as unreliable
+- Straightlining score > 0.20 AND a high speeder rate = Strong concern; review the multi-flag respondents before excluding anyone
 - Acquiescence > 0.75 AND all open-ended responses < 5 words = Satisficing throughout
 - Item non-response > 20% AND not explained by skips = Data quality concern
 - Cronbach's alpha < 0.5 despite 5+ items = Construct validity problem
@@ -256,9 +275,9 @@ Beyond Longest Identical String (LIS), detect other forms of non-differentiation
 ### Acceptable Quality (Single Indicators in Acceptable Range)
 
 - Straightlining 0.05-0.15 with normal question design = Expected
-- Acquiescence 0.55-0.65 on agree/disagree surveys = Normal range
+- Acquiescence 0.4-0.6 on agree/disagree surveys = Normal range
 - Item non-response 5-10% = Acceptable for slightly sensitive items
-- Cronbach's alpha 0.65-0.75 = Adequate for exploratory research
+- Cronbach's alpha 0.60-0.70 = Adequate for exploratory research
 
 ### High Quality (Strong Indicators Present)
 

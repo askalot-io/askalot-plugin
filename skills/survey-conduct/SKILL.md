@@ -6,8 +6,8 @@ description: Use when answering survey questions as a simulated respondent — c
 # Survey Conduct
 
 Knowledge for a respondent agent filling in a survey. This skill covers
-*how to behave* once the respondent.md persona, demographic profile, and
-interviewer brief are loaded. It does not cover tool syntax — the
+*how to behave* once the `complete-survey` flow has given you a demographic
+profile and an interviewer brief. It does not cover tool syntax — the
 `mcp-survey-tools` skill covers that.
 
 ## Memory — what you know about yourself
@@ -71,9 +71,8 @@ who you are. For example: you said "no" to "Do you own a car?" on Q3,
 but Q14 asks "How often do you use public transit?" and you realise
 your profile strongly implies you own a car and rarely use transit.
 
-**Philosophy for now.** The ability to literally go back and change an
-earlier answer depends on MCP tools that are not yet available. In the
-current setup, the flow is forward-only. When you spot an inconsistency:
+The flow is forward-only: no tool changes an answer already submitted.
+When you spot an inconsistency:
 
 1. **Acknowledge it internally** — note that Q3 was off. Do not
    pretend it didn't happen.
@@ -83,14 +82,6 @@ current setup, the flow is forward-only. When you spot an inconsistency:
    even though it strains against Q3.
 3. **Do not spiral.** One mild contradiction in a survey is realistic.
    Three in a row is not. Prioritise not adding more.
-
-**When go-back tools land later** (they are planned), the rules become:
-
-- You get a **budget of 3 revisions per survey**. After that, you stop
-  revising even if you spot more inconsistencies.
-- Only revise when the contradiction is *material* — it would make a
-  data analyst notice. Ignore cosmetic mismatches.
-- Never revise the same answer twice. That's a thrash.
 
 ## Open-ended answers
 
@@ -106,6 +97,6 @@ When a question asks for free text:
 
 ## When to finish
 
-When `get_survey_current_item` indicates the survey is complete, or the
-tool explicitly says there are no more items, call `finish_survey` to
-finalise. Don't keep polling.
+When a step comes back with `status: "completed"` (from
+`submit_survey_response`, or from `get_survey_current_item`), call
+`finish_survey` once to finalise. Don't read the survey again after that.

@@ -5,7 +5,9 @@ description: Use when planning survey research, defining target populations, ope
 
 # Research Methodology for Survey Research
 
-Comprehensive guide to designing high-quality survey research, grounded in peer-reviewed literature and field-tested practices. This knowledge base supports research assistants in translating research topics into well-defined survey research papers.
+Planning knowledge for turning a research topic into a well-defined survey research paper: causality model, population and frame, sizing inputs, construct operationalization, and the error sources the design has to manage. Item-level wording, scale and ordering rules are the planner's and writer's (`survey-design` skill); this file covers them only as far as planning needs. For a claim that needs a citation, search the methodology library (`search_methodology_library`) rather than quoting a figure from this file.
+
+Pilots, cognitive interviews and frame construction are steps the researcher carries out. Where this file calls for one, recommend it in the paper or to the researcher; do not report it as done.
 
 ## Table of Contents
 
@@ -54,6 +56,26 @@ Online surveys show platform-dependent attrition patterns:
 
 Plan survey length and complexity around expected attrition. Shorter surveys with clear incentives improve completion rates.
 
+#### Sizing checklist
+
+A sample size is computed from a handful of inputs, and only the researcher can
+supply most of them. Collect them while the research questions are taking
+shape, not when the campaign is about to be fielded:
+
+- **Per quantitative goal**: the precision the estimate needs (a margin, "within
+  ±4 points at 95% confidence"), or for a comparison the **smallest difference**
+  worth detecting; and the subgroups the goal compares or reports, with the
+  **rough share** of each in the population.
+- **For the target audience**: the **population size**, the expected
+  **eligibility** (share of those contacted who qualify) and the expected
+  **response** (share who complete).
+
+In the paper, each goal's answers belong in that goal's own list item, and the
+audience's in the `target_audience` paragraph, each with its source. When the
+material does not say, ask the researcher; a guessed figure looks like a stated
+one. Record these as prose only, and never call `save_sizing_targets`: saving
+a plan is the researcher's decision.
+
 ### Tailored Design Method
 
 The Tailored Design method customizes survey procedures for specific populations:
@@ -70,7 +92,7 @@ Different populations require different contact modes, incentive types, and pres
 
 ### Pilot Work and Pretesting
 
-Pilot work before survey launch is non-negotiable:
+Plan pilot work before survey launch:
 
 1. **Cognitive interviewing**: Interview a small sample about how they interpret each question
 2. **Behavior coding**: Observe response patterns in a pilot group to identify:
@@ -105,7 +127,7 @@ Example: "Trust in institutions" → specify: trust in competence? integrity? re
 Choose measurement approach based on construct:
 
 **Rating scales for attitude/perception constructs:**
-- **5-7 point scales are optimal** for maximizing information and minimizing respondent burden (Krosnick & Presser research)
+- **5-7 point scales are optimal** for maximizing information and minimizing respondent burden (Krosnick & Presser research): 5 or 7 for bipolar scales, 4-5 for unipolar ones (Dillman et al. 2014)
 - 5-point provides practical sweet spot: captures variance, reduces satisficing
 - Avoid scales with extreme point counts (>9) — increases random error without proportional information gain
 - Single-item measures are insufficient for complex constructs; use multi-item batteries
@@ -176,7 +198,7 @@ Satisficers are vulnerable to:
 - **Primacy bias**: First options chosen more for complex/unfamiliar items
 - **Recency bias**: Last options chosen more for simple/well-known items
 - **Asymmetric balance**: Unequal option distributions create directional bias
-- Mitigation: Randomize option order across respondents; ensure balanced scale symmetry
+- Mitigation: Randomize option order across respondents where the survey tool allows it (QML does not; options appear as written); ensure balanced scale symmetry
 
 ---
 
@@ -206,10 +228,9 @@ Respondent Set (who completes survey)
 
 Coverage error occurs when the sampling frame omits parts of the target population or includes non-population members.
 
-**Real-world example** (landline/cell phone bias):
-- In many developed countries, 38% of households still have landlines only (no cell phone)
-- Sampling only from cell phone lists excludes older, rural, and lower-income households
-- These excluded groups often have different characteristics on the topic of interest
+**Real-world example** (landline frame, Dillman et al. 2014):
+- Only about 58% of US households still had a landline (Blumberg & Luke, 2013)
+- A landline-only frame leaves out the rest, and households with a landline are better off than those without, so the survey overestimates socioeconomic status
 - Result: Biased sample estimates, even with large sample sizes
 
 **Coverage error cannot be fixed by larger sample sizes** — it is systematic bias, not random error.
@@ -260,7 +281,7 @@ Common frame sources by population:
 
 **Reality**: Non-respondents systematically differ from respondents. Even with 84% response rate, serious measurement bias can occur if the 16% who don't respond hold different views on the topic.
 
-**Real example**: Survey on sexual behavior with 84% response rate. Respondents and non-respondents differed dramatically on behavior frequency, making the overall estimate highly biased despite excellent response rate.
+**Real example** (Dillman et al. 2014): a 1989 Dallas County survey on HIV risk behavior reached an 84% response rate, yet a follow-up of nonrespondents found IV drug use at 7% against 3% among the initial respondents, so the initial estimates were biased despite the response rate.
 
 **Solution**: Compare respondents to non-respondents on demographic variables if possible; track response rates by mode and population subgroup; report response rates transparently.
 
@@ -274,7 +295,7 @@ Example: "To what extent do you agree that the government should fund education 
 
 ### 4. Neglecting Scale Point Optimization
 
-**Pitfall**: Using arbitrary scale lengths (10-point, 7-point) without research basis.
+**Pitfall**: Using arbitrary scale lengths (10-point, 11-point) without research basis.
 
 **Reality**: Research by Krosnick & Presser shows:
 - 5–7 points maximize information while keeping respondent burden low
@@ -298,7 +319,7 @@ Example: "To what extent do you agree that the government should fund education 
 
 **Reality**: Questions that seem clear to experts often confuse respondents; response distributions reveal floor/ceiling effects; timing estimates are frequently wrong.
 
-**Solution**: Mandatory cognitive interviews with 5–10 target population members; pilot launch on 50–100 respondents before full deployment.
+**Solution**: Cognitive interviews with 5–10 target population members; pilot launch on 50–100 respondents before full deployment.
 
 ---
 
@@ -367,7 +388,7 @@ Standard Error ≈ √(population variance / effective sample size)
 
 **Critical principle**: Nonresponse error is NOT automatically reduced by higher response rates. An 84% response rate with systematic differences between respondents and non-respondents produces more bias than a 60% response rate with minimal differences.
 
-**Real example**: 84% response rate survey on sexual behavior; the 16% non-respondents had dramatically different behavior patterns from respondents, making the overall estimate highly biased.
+(Example: the 84% response-rate study under "Ignoring Nonresponse Error" above.)
 
 **Minimization strategies**:
 - Increase contact attempts (phone, email, postal, in-person)
@@ -402,7 +423,7 @@ Standard Error ≈ √(population variance / effective sample size)
 
 ### Interactions Between Error Sources
 
-The four error sources **are independent** but **interact in impact**:
+The four error sources arise separately, but a design choice that reduces one can raise another:
 
 - Reducing coverage error by using more expensive frames may reduce sampling error (more complete population information)
 - Aggressive incentives reduce nonresponse error but may increase measurement error (faster, less-careful responses)
@@ -412,24 +433,21 @@ The four error sources **are independent** but **interact in impact**:
 
 ### Survey Error in Mixed-Mode Designs
 
-Mixed-mode surveys (combining online, phone, mail) face additional error sources:
+Mixed-mode surveys (combining online, phone, mail) trade coverage and response against measurement differences between modes.
 
-**Mixed-mode error types**:
-1. **Type 1**: Contact by one mode, response by same mode (e.g., email contact, online response)
-2. **Type 2**: Contact by one mode, response by different mode (e.g., postal contact, online response)
-3. **Type 3**: Simultaneous multiple modes offered (e.g., "respond online, by phone, or mail")
-4. **Type 4**: Sequential modes (e.g., try online, then phone if no response)
+**Mixed-mode design types** (Dillman et al. 2014):
+1. **Type 1**: One mode encourages response by another (e.g., a postal letter ahead of a telephone interview)
+2. **Type 2**: Two modes collect responses from the same respondent (e.g., a self-administered section for sensitive questions inside an in-person interview)
+3. **Type 3**: Different modes collect responses from different people in the same population (e.g., telephone follow-up of mail nonrespondents)
+4. **Type 4**: Different modes for the same person at different times (e.g., in-person at wave 1, web at wave 2)
+
+Types 1, 3 and 4 mainly improve coverage and response; Type 2 mainly improves measurement by reducing social desirability; Types 3 and 4 carry the largest measurement-error risk when aural and visual modes are mixed.
 
 Each mode has different coverage (who is reachable), measurement characteristics (online vs. phone interviews produce different responses), and cost profiles. Mode choice affects all four error sources.
 
 ---
 
 ## Research Design vs. Research Techniques
-
-### Key Distinction
-
-- **Design** = How will I answer this research question? (sampling strategy, causality model, measurement approach)
-- **Techniques** = What specific procedures will I use? (online questionnaire vs. phone interview vs. postal mail)
 
 ### Design Decisions Before Technique Decisions
 
@@ -470,12 +488,3 @@ THEN choose techniques (technology platform, software, mode) that implement the 
 **Dillman, D. A., Smyth, J. D., & Christian, L. M.** (2014). *Internet, Phone, Mail, and Mixed-Mode Surveys: The Tailored Design Method* (4th ed.). Authoritative coverage of Total Survey Error framework, mixed-mode design types, social exchange theory, and tailored design methodology for specific populations.
 
 **Groves, R. M.** (2004). *Survey Errors and Survey Costs*. Formal treatment of error sources, their interactions, and cost-quality tradeoffs.
-
----
-
-## Document Metadata
-
-- **Created**: March 2026
-- **Based on**: Content extracted from *How to Run Surveys* (Stantcheva 2023), *Question and Questionnaire Design* (Krosnick & Presser 2010), *Questionnaire Design, Interviewing and Attitude Measurement* (Oppenheim 1992), and *Internet, Phone, Mail, and Mixed-Mode Surveys* (Dillman et al. 2014)
-- **Purpose**: Knowledge base for research assistant AI agent translating research topics into well-defined survey research papers
-- **Audience**: Research assistants, survey designers, research methodologists

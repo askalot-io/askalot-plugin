@@ -62,9 +62,11 @@ Benefits:
 - Parallel development: different researchers can own different modules
 - Testing: each module can be validated independently
 
-In QML: each module maps to a block. The eligibility gate is a
-codeBlock or Switch item in the universal screening block, and all
-items in the module carry a precondition on the eligibility variable.
+In QML: each module maps to a block. The eligibility gate is a Switch
+item, or a variable computed in a `codeBlock`, in the universal
+screening block, and the module's block carries the gate once, as its
+block-level `precondition` (never copied onto each item; see
+`filter-patterns.md`).
 
 ## Hub-and-Spoke Routing Pattern
 
@@ -85,9 +87,9 @@ activated only when its flag is set. A respondent who owns property,
 has no children, is employed, and is under 55 would see modules A, C,
 and potentially D and E — skipping B and F entirely.
 
-In QML: the hub is a block of codeBlock items that compute eligibility
-variables from the screening answers. Each spoke block's items carry
-preconditions on the corresponding eligibility variable.
+In QML: the hub is the first block; its `codeBlock`s compute the
+eligibility variables from the screening answers. Each spoke is a
+block whose block-level `precondition` reads its eligibility variable.
 
 ## Sequential Gating Within Modules
 
@@ -143,14 +145,24 @@ Example with 3 rotation groups:
 Each optional module reaches 2/3 of respondents. The random assignment
 ensures unbiased estimates for each module.
 
-In QML: implement rotation via a codeInit variable set from an external
-respondent attribute or a random assignment at survey start. Gate
-rotating modules with preconditions on this variable.
+In QML: read the rotation group from an `external: true` item
+prefilled from a respondent attribute (a `custom_attributes` key
+imported with the sample, mapped to the item per campaign in
+Targetor), and gate each rotating module's block with a block-level
+`precondition` on that item's outcome. Do not draw it in a `codeBlock`
+(`random.randint(1, 3)`): the validator does not model what `random`
+computes, so every gate on it is unverified (`qml-syntax` §6.4), and a
+codeBlock runs again when its item is re-answered, so a respondent who
+goes back past it is re-drawn into another group mid-survey. A
+`codeInit` constant that no `codeBlock` reassigns is no rotation
+either: the validator refuses a gate on it (`frozen_variable`). A
+respondent whose record carries no group is asked the item in the flow,
+so give every sampled respondent the attribute before fielding.
 
 ## Variable Accumulation Strategy
 
 In large instruments, routing decisions often depend on combinations
-of earlier answers. Use codeBlock items to accumulate derived variables
+of earlier answers. Use `codeBlock`s to accumulate derived variables
 as the respondent progresses:
 
 **Profile variables**: Computed from screening answers, used throughout.
@@ -167,7 +179,7 @@ screening section.
 ```yaml
 - id: calc_risk_profile
   kind: Comment
-  title: "Compute the risk profile"
+  title: "Thank you. The next questions depend on your answers so far."
   codeBlock: |
     risk_score = 0
     if q_age.outcome < 30:
@@ -204,17 +216,19 @@ Design them to maximize routing value:
 average respondent answers more than 30% of items, the routing is
 probably insufficient. Most respondents should skip large sections.
 
-**Deep nesting without escape**: If routing creates paths 5+ levels
-deep, the survey becomes a maze. Keep nesting to 2-3 levels maximum.
+**Deep gating without escape**: If routing creates gates 5+ levels
+deep, the survey becomes a maze. Keep gate depth to 2-3 levels maximum.
 Use the hub-and-spoke pattern instead of deep trees.
 
 **Routing on open-ended answers**: Never gate questions on free-text
 responses. Use closed-ended routing questions that produce predictable,
 machine-readable outcomes.
 
-**Redundant screening**: Don't re-screen within a module for attributes
-already established in the universal screening block. Pass eligibility
-via computed variables.
+**Redundant screening**: Don't ask again within a module for an
+attribute already established in the universal screening block. Pass
+eligibility via computed variables. (A module-level gate question that
+asks something new, narrower than the screening answer, is not
+redundant.)
 
 **Asymmetric burden**: If some respondent profiles see 80 questions and
 others see 15, the data quality for the long path will be lower. Balance

@@ -1,7 +1,6 @@
 ---
 name: kb-data-analysis
 description: Pointer to the public data-analysis guide at docs.askalot.io/guide/data-analysis. Use when an agent or CLI user needs the end-user explainer for the Bronze/Silver/Gold medallion pipeline, raking, export formats, and quality metrics workflow. Complements the data-quality and sampling-theory skills with reader-facing context.
-disable-model-invocation: false
 ---
 
 # Data Analysis Guide
@@ -15,8 +14,9 @@ Use the live page when:
   campaign data and what each transition step does
 - You're explaining raking (post-stratification weighting) to a
   non-engineering audience
-- You need the export-format compatibility matrix (CSV / Excel / SPSS /
-  Parquet) without inlining it in chat
+- You need the export-format table (CSV, semicolon CSV, Excel, SPSS,
+  Parquet, R `.rds`, JSON — what each is best for) without inlining it
+  in chat
 
 The bundled skills cover the agent-facing angle:
 

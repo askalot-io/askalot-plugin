@@ -31,7 +31,7 @@ exactly those two cases. Routing correctly is not an optimization — an
 oversized MCP call is *refused*, not slow, and a naive per-row MCP loop
 over 500 respondents will exhaust your context long before it finishes.
 
-## The three lanes — decide before you dispatch a single tool call
+## The three lanes, and the fallback — decide before you dispatch a single tool call
 
 1. **Semantic verb, one entity, normal-sized payload** (create a
    project, update a campaign, read a Bundle's quality story, submit
@@ -46,14 +46,13 @@ over 500 respondents will exhaust your context long before it finishes.
    code-execution loop**, if your session has a code-execution/sandbox
    capability (Claude Code does). Loop and filter in the sandbox; return
    a summary to context, not a per-row dump.
-4. **Mass operation, no code-execution capability** (a hosted pure-MCP
-   session with no sandbox) → **fall back to the platform's `task_id`
-   job tools** (`mass_fill_surveys` + `get_task_status`, or
-   `code_open_ends`/`derive_silver` + `get_dataset` polling). Do not
-   attempt to hand-write hundreds of sequential MCP calls in one turn as
-   a substitute for either lane 3 or a task_id tool — that degrades to
-   the same context-flooding problem lane 3 exists to avoid, just done
-   by hand.
+4. **The fallback (called lane 4 below): a mass operation with no
+   code-execution capability** (a hosted pure-MCP session with no
+   sandbox) → **the platform's async job tools** (`mass_fill_surveys` +
+   `get_task_status`, or `code_open_ends`/`derive_silver` +
+   `get_dataset` polling). Do not hand-write hundreds of sequential MCP
+   calls in one turn as a substitute for either lane 3 or a job tool —
+   that is the context flooding lane 3 exists to avoid, done by hand.
 
 If you're unsure which lane a task falls into, default to MCP (lane 1)
 for anything under roughly 20-50 entities and no oversized payload; the
@@ -77,8 +76,8 @@ content under a newer id.
 
 `save_qml_file`'s inline threshold is 32 KB (`INLINE_THRESHOLD_BYTES`),
 whatever `base_version_id` it names. Above it, the call is refused with
-`content_too_large_for_inline_save` — never trim or drop content to fit
-under the threshold. Use the handle recipe below instead.
+`content_too_large_for_inline_save`. Use the handle recipe below; do not
+trim or drop content to fit under the threshold.
 
 **Read path (QML content)**: `get_qml_content` is the read-side mirror —
 above the same 32 KB threshold it returns a short-lived signed
@@ -95,8 +94,11 @@ over HTTPS once the export completes.
    short-lived, single-use, size-capped handle:
    `{upload_url, artifact_id, max_size_bytes, expires_in}`.
 2. `PUT` the raw QML bytes to `upload_url` over HTTPS, out-of-band —
-   any HTTP-capable tool works (Claude Code's own request capability is
-   enough); the content never appears in a tool argument or MCP context.
+   any HTTP client works; the content never appears in a tool argument
+   or MCP context. Send `Content-Type: application/x-yaml` (any other
+   type is refused `content_type_mismatch`) and a REST credential: the
+   signed URL alone is not enough, and the credential rule is lane 3's
+   (`X-Api-Token`). The PUT succeeds at most once per handle.
 3. `finalize_upload(artifact_id=..., base_version_id=...)` — saves the
    staged bytes exactly as an inline save of them on that base would:
    landed, merged with a newer version, or refused. Idempotent on retry.
@@ -105,10 +107,11 @@ over HTTPS once the export completes.
    `base_version_unknown` keeps the handle for a call with the right id.
 
 This requires HTTP egress from the calling agent. A pure-MCP hosted
-session with no egress capability cannot complete an above-threshold
-save at all — the inline save's error names that limitation explicitly
-rather than failing silently; reduce the content below the threshold, or
-drive the task from an egress-capable session instead.
+session with no egress cannot complete an above-threshold save at all,
+and the inline save's error says so. In that session, tell the user the
+save has to be driven from an egress-capable session; making the
+questionnaire smaller is the only other way, and that is the user's
+choice, not something to do in order to get a save through.
 
 ## Lane 3: mass operations via REST code execution
 
@@ -118,7 +121,8 @@ either exceed a reasonable turn budget or flood your context with rows
 you don't need to individually reason about — e.g. "delete every
 respondent from source X older than 6 months", "audit all 500 surveys
 in this campaign and report which ones have inconsistent answers",
-"bulk-create 200 respondents from this CSV".
+"create 200 respondents from this CSV" (one `POST /api/v1/respondents`
+per row).
 
 **Pattern**:
 
@@ -134,12 +138,17 @@ in this campaign and report which ones have inconsistent answers",
    "Choosing MCP or REST" in `api/mcp.md`, reachable through
    `get_documentation`.)
 2. Discover the REST surface via `/api/v1/docs` (Swagger UI) or
-   `/api/v1/openapi.json` — every entity has REST CRUD, and the bulk
-   endpoints (`bulk_create_respondents`, `bulk_delete_respondents`,
-   `bulk_create_surveys`, `bulk_delete_surveys`) are REST+MCP
-   dual-projected, so the same operation is available either way; REST
-   is simply the shape that lets your generated code paginate and loop
-   without a context round-trip per row.
+   `/api/v1/openapi.json`, on the same host as the MCP endpoint
+   (`https://portor.<tenant>.askalot.io`). Every entity has REST CRUD
+   except two groups: Datasets have list, get, delete and export only
+   (`/api/v1/datasets`), and the QML lifecycle tools, the upload-handle
+   pair and the pipeline-job verbs `code_open_ends` / `derive_silver`
+   are MCP-only. The bulk verbs (`bulk_create_respondents`,
+   `bulk_delete_respondents`, `bulk_create_surveys`,
+   `bulk_delete_surveys`) exist on both; REST is the shape that lets
+   generated code page and loop without a context round-trip per row,
+   not a bigger batch: `bulk_create_respondents` generates synthetic
+   test respondents and caps at 100 per call on both lanes.
 3. Write the loop/filter/decide logic in the sandbox. Fetch pages, apply
    your filter, decide per-row, issue writes.
 4. Return a **summary** to context — counts, a handful of representative
@@ -153,7 +162,7 @@ REST is live and powerful. **Never print, log, or transmit it outside
 the REST call that needs it** — not to stdout, not to a file the agent
 later reads back, not embedded in the summary you return to context. Pass
 it via an environment variable directly to the script process; reference
-that variable only in the `Authorization` header construction.
+that variable only where the `X-Api-Token` header is built.
 
 **2. Bulk-mutation blast radius.** Agent-scripted bulk mutations have no
 throttle beyond generic network-level rate limiting — Portor does not
@@ -199,10 +208,14 @@ the same registered tools in order and returns a `task_id` to poll with
   `create_gold_dataset`. Only the Bronze and the derive's enqueue happen during
   the call; Gold runs on Portor's own queue once the Silver is `ready`.
 
-A composite refuses the WHOLE chain when the caller cannot afford a later step,
-rather than handing back a half-built result, and reports `stopped_at_step` when
-one does stop. Nothing unwinds — what earlier steps built stays built, so you
-resume by calling the remaining tools yourself.
+A composite checks every step's capability before it builds anything, so a
+caller who lacks a later step's capability is refused the whole chain rather
+than handed a half-built result. A chain that stops partway is not a tool
+error: `simulate_campaign_responses` answers a normal result, and
+`run_bundle_pipeline` the refusing step's `{success: false, error, detail}`,
+each with `stopped_at_step` naming the step. Branch on that field (non-null
+means the chain did not finish). Nothing unwinds — what earlier steps built
+stays built, and calling the composite again resumes over the same rows.
 
 Never substitute a hand-written sequence of dozens of individual MCP
 calls for one of these enqueue tools — the enqueue exists precisely
@@ -215,8 +228,8 @@ task_id from one is meaningless to the other tool.
 
 | Surface | Poll tool | Backs | Terminal states | Cadence |
 |---|---|---|---|---|
-| **task-status** | `get_task_status(task_id)` | Mass-fill jobs (`mass_fill_surveys`) and chain runs (`run_bundle_pipeline`, `simulate_campaign_responses`) | `completed`, `partial`, `failed` | Response carries `suggested_poll_interval_seconds` — a `[2, 30]`s heuristic hint while pending/running, `null` once terminal |
-| **dataset-status** | `get_dataset(dataset_id)` | Individual pipeline STAGES called by hand: `code_open_ends`/`derive_silver`, `create_bronze_dataset`, `create_gold_dataset` | `ready` (via `processing_status`) | No computed hint — poll every few seconds. Bounded: the column schema is on `get_dataset_schema`, not here |
+| **task-status** | `get_task_status(task_id)` | Mass-fill jobs (`mass_fill_surveys`), chain runs (`run_bundle_pipeline`, `simulate_campaign_responses`) and questionnaire imports (`import_questionnaire`) | `completed`, `partial`, `failed` | Response carries `suggested_poll_interval_seconds` — a `[2, 30]`s heuristic hint while pending/running, `null` once terminal |
+| **dataset-status** | `get_dataset(dataset_id)` | Individual pipeline STAGES called by hand: `code_open_ends`/`derive_silver`, `create_bronze_dataset`, `create_gold_dataset` | `ready`, `error` (in `processing_status`; `processing_error` says why) | No computed hint — poll every few seconds. Bounded: the column schema is on `get_dataset_schema`, not here |
 
 A chain run's poll response carries two fields a single-stage run leaves
 `null`: `step`, the chain step the run reached — and for a failed run the step
@@ -224,10 +237,11 @@ it stopped at, so you never have to parse that out of `status_text` — and
 `result`, the run's own outputs (for a Bundle pipeline, each stage's dataset id).
 
 `partial` (task-status only) means a bulk task finished with a mixed
-succeeded/failed outcome (e.g. 480 of 500 surveys filled) — its result
-summary carries succeeded/failed counts and failed IDs, never a per-item
-dump. Treat it as terminal: stop polling, then decide whether to retry
-the failed subset.
+succeeded/failed outcome (e.g. 480 of 500 surveys filled). `status_text`
+carries the filled and failed counts; the poll names no survey ids (a
+fill's `result` is `null`). Treat it as terminal: stop polling, then
+decide whether to run the fill again, which processes only the surveys
+not yet completed.
 
 ## Tool-surface size and defer-loading
 
@@ -236,6 +250,13 @@ campaigns, questionnaires, respondents, pools, strategies, surveys,
 datasets, bundles, documents, methodology library, paper, conversation
 persistence, and audit. Preloading every tool's full schema into context
 up front is wasteful when a given turn only needs a handful.
+
+A connection can also be narrowed at the URL:
+`/mcp?toolsets=analysis,campaign` lists only those areas' tools (the nine
+names are `project`, `questionnaire`, `sampling`, `campaign`, `fielding`,
+`analysis`, `documents`, `methodology`, `audit`; `list_toolsets` reports
+them). Narrowing changes the tool list, never permissions; a call to a
+tool outside the connection's toolsets is refused `toolset_excluded`.
 
 If your harness supports deferred tool loading (Claude Code does — tools
 beyond a threshold surface as names only, with full schemas fetched
@@ -246,7 +267,7 @@ a handful of relevant keywords), then call it. A tool name appearing in
 a deferred listing is not yet callable — treat it the same as an
 undiscovered tool until its schema has actually loaded.
 
-## Degraded cues without this skill (R17)
+## Degraded cues without this skill
 
 Every lane rule above has a twin that surfaces directly in tool output
 or a structured error, so a raw-MCP session with no plugin loaded still
@@ -256,8 +277,7 @@ gate it:
 - `save_qml_file` above 32 KB → `content_too_large_for_inline_save`,
   carrying `threshold_bytes`, `content_bytes`, and a `next_step` field
   that names `request_upload_url` + `finalize_upload` explicitly, plus a
-  `detail` string that calls out the HTTP-egress requirement and the
-  Claude-Code-only posture for pure-MCP sessions without egress.
+  `detail` string that states the HTTP-egress requirement.
 - `save_qml_file` or `finalize_upload` with a `base_version_id` that is not
   a version of the questionnaire → `base_version_unknown`, whose `detail`
   says to call `get_qml_content` and save with the `version_id` it answers.
@@ -279,15 +299,11 @@ gate it:
   the *default*, not opt-in — a caller who never reads this skill still
   gets the count-first safety behavior by doing nothing extra.
 
-This coverage was verified against the current tool docstrings while
-writing this skill (plan 2026-07-11-001 U8) — it was not assumed.
-
 ## What this skill does not change
 
 This is a routing/documentation skill only. It introduces no new MCP
 tools, REST endpoints, or server-side behavior — every mechanism it
 describes (the 32 KB threshold, the handle lane, `dry_run` defaults, the
-two poll surfaces) already exists and was shipped by earlier units in
-plan 2026-07-11-001 (U1-U7). If a task needs a lane this skill doesn't
+two poll surfaces) already exists. If a task needs a lane this skill doesn't
 describe, that's a signal the underlying capability doesn't exist yet —
 surface it as a gap rather than improvising a workaround.

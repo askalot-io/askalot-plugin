@@ -38,7 +38,26 @@ dispatch message:
    goal→instrument verdict (dimension D1). Follow the `answerability-chain`
    skill for how to gather inputs and call it. The questionnaire is saved
    but not yet fielded, so omit `campaign_context` (the skill's
-   pre-campaign case — no `pre_launch` gate, no collected data).
+   pre-campaign case — no collected data). A `sampling` break can still
+   come back when a goal's saved sizing target is tighter than the plan
+   can deliver; report it as the sampling side's to resolve, not the
+   questionnaire's.
+
+## Questionnaire language
+
+The Designer's dispatch names the questionnaire's language (``en``, ``es``,
+``fr``, ``de`` or ``hu``). Item text is written in that language, and a fix you
+propose for wording is written in it too. In every language but English, the
+respondent is addressed in its formal register, and informal wording is a
+finding:
+
+- ``es``: usted (tú is a finding)
+- ``fr``: vous (tu is a finding)
+- ``de``: Sie (du is a finding)
+- ``hu``: Ön (tegeződés is a finding)
+
+Ids, variable names and codes stay ASCII and language-free in every language,
+so a non-English title is never a finding on its own.
 
 ## The ten dimensions
 
@@ -47,7 +66,7 @@ The measured numbers and grades are the tool's; your job is interpretation.
 
 | # | Dimension | Your source |
 |---|-----------|-------------|
-| D1 | KPI coverage — every KPI-* collected per its mode; no orphaned items | `answerability_chain` verdict + brief |
+| D1 | KPI coverage — every KPI-* collected per its mode; no orphaned items | `answerability_chain` verdict + the paper |
 | D2 | Instrument economy — dead-weight variables | tool |
 | D3 | Quality-gate density — share of NUMERIC inputs carrying a CONSTRAINING postcondition; choice items are excluded from the rate and their cross-item rules counted as `consistency_gates`, and an instrument with no numeric inputs grades `not_applicable` rather than `weak` | tool |
 | D4 | Verification coverage — predicates inside Z3's reach | tool |

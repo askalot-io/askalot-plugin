@@ -2,6 +2,18 @@
 
 Evidence-based rules for writing clear, unambiguous survey questions that reduce cognitive burden and misinterpretation.
 
+## Contents
+
+- Conventional Wisdom: 8 Core Rules (language, syntax, ambiguity, specificity, exhaustive categories, leading, double-barreled, double negatives)
+- Psycholinguistic Text Features Increasing Cognitive Burden (7 features to scan a stem for)
+- Psychometric Effects and Response Quality (satisficing, response order, acquiescence)
+- Recall and Reference Period Guidelines
+- Detecting Problematic Question Types (leading, loaded)
+- Response Task Organization
+
+The percentages in this file carry no citation; treat them as rough
+magnitudes and do not quote them to a user as findings.
+
 ## Conventional Wisdom: 8 Core Rules
 
 ### 1. Use Simple Language
@@ -184,11 +196,11 @@ Questions that require respondents to generate bridging inferences (unstated log
 - Questions requiring high cognitive effort (long, complex, ambiguous)
 - Respondents with limited cognitive ability or motivation (age 65+, low education, survey fatigue)
 - Survey context (long questionnaire, time pressure, boring topic)
-- High number of response options (7+ points increases satisficing; 5-point scales optimal)
+- High number of response options (more than 7 points increases satisficing; see `scale-design.md` for scale length)
 
 **Prevention**:
 - Simplify question wording
-- Reduce response option number to 5-7 points
+- Keep rating scales within the lengths in `scale-design.md` (at most 7 points)
 - Reduce questionnaire length or break into multiple sessions
 - Use engaging introductions and progress indicators
 
@@ -203,8 +215,8 @@ The order of response options influences choice distribution, especially with lo
 **Magnitude**: Order effects can shift response distributions by 5-15% depending on option number and survey mode.
 
 **Mitigation**:
-- Randomize response order in web surveys (different randomization per respondent)
-- For fixed-order lists (demographics), don't randomize
+- Randomizing option order per respondent is the standard remedy, but QML renders options in the order written; for a nominal list, keep it short and order it neutrally (alphabetical, or by a natural order)
+- Keep ordinal scales and conventional lists (demographics) in their natural order
 - Use balanced lists where all options are equally desirable
 - Keep option number at 4-7 (avoid 2-3 option lists with strong order bias)
 
@@ -258,14 +270,7 @@ Break complex behaviors into specific components rather than asking for totals:
 
 ## Detecting Problematic Question Types
 
-### Double-Barreled Questions
-
-**Detection patterns**:
-- Multiple concepts connected by "and," "or," "as well as"
-- Different concepts with logically independent answers
-- Question admitting "yes to part, no to part" responses
-
-**Test**: "Can someone logically answer yes to one part and no to another?" If yes, it's double-barreled.
+Double-barreled questions: see rule 7 above for the detection test.
 
 ### Leading Questions
 
@@ -295,16 +300,3 @@ Organize the question stem so the core question comes first, with context and cl
 - GOOD: "How satisfied are you with this product?" [If rating scale] "Consider: price, quality, service, and availability."
 
 **Principle**: Respondents process the first words of a question first; lead with the core question, not with context or qualifiers.
-
-## Conventional Wisdom Summary Table
-
-| Principle | Error | Mitigation | Impact |
-|-----------|-------|-----------|--------|
-| Simple language | 20-30% comprehension error | Avoid low-frequency words, define jargon | Data quality +20-30% |
-| Simple syntax | 15-25% parsing errors | Keep < 20 words, avoid embedded clauses | Error reduction 15-25% |
-| Unambiguous | 30-50% interpretation divergence | Define scope, avoid pronouns without antecedents | Reliability +30-50% |
-| Specific time frame | 20-40% recall error | Use bounded recall (7-30 days), landmarks | Accuracy +20-40% |
-| Exhaustive categories | Loss of valid responses | Complete list + "Other" option | Response validity +15-25% |
-| No leading language | 10-15% acquiescence bias | Neutral framing, balanced agree/disagree | Bias reduction 10-15% |
-| Single concept | Loss of usable data | Split compound questions | Data utility +25-40% |
-| No double negatives | 15-20% comprehension error | Positive frames, avoid negation | Accuracy +15-20% |

@@ -9,7 +9,7 @@ For use by campaign manager AI agents when advising on sampling strategies, quot
 
 ## Core Framework: Adaptive Survey Designs
 
-Adaptive survey designs optimize data collection quality by assigning different strategies to different population units based on available information. The framework consists of five key ingredients:
+Adaptive survey designs optimize data collection quality by assigning different strategies to different population units based on available information. The framework consists of six ingredients:
 
 ### 1. Survey Strategies (Design Features)
 
@@ -119,7 +119,7 @@ Q(p) = cov(Y, ρ_x) / ρ̄
 
 With:
 ```
-cov(Y, ρ_x) = [Σ_x q(x) ρ_x(x) (y(x) - ȳ_B)] / ρ̄
+cov(Y, ρ_x) = Σ_x q(x) ρ_x(x) (y(x) - ȳ_B)
 ```
 
 **Quality function selection guidance**:
@@ -326,7 +326,7 @@ Example strategy sequence:
 - [ ] Define strategies S={s₁, s₂, ...} as specific design feature combinations
 - [ ] Set constraints: budget C_max OR quality target Q_min
 - [ ] Formulate optimization problem and verify feasibility
-- [ ] Conduct sensitivity analysis: varies propensity estimates ±20%, examine solution stability
+- [ ] Conduct sensitivity analysis: vary propensity estimates ±20%, examine solution stability
 
 ### During Fieldwork (Static Adaptive Design)
 
@@ -370,6 +370,8 @@ mapping to ground your advice in what can actually be measured.
 | Effective sample size | n / DEFF | Included in weighting diagnostics |
 | Response quality | Entropy, straightlining, Cronbach's alpha, speeder detection | `get_bundle_quality` (Response Quality measure) |
 | Strategy factor design | Demographic factors with target distributions, plus how fit is graded (`quality_metric`) | `create_sampling_strategy` |
+| Sizing evidence | Each goal's own passage, the audience and sampling text, the newest Study's results block (the last wave's yield, design effect and each KPI's achieved precision) with its Across-waves passage, a Strategy's shares and eligible frame; no campaign or Bundle is read; read-only | `get_sizing_evidence` |
+| Sample size for a draw | Completes needed, oversample factor and invites from goal targets (margin of error or two-group power), eligibility, response and design effect, plus the saved plan with each value's provenance; read-only. `save_sizing_targets` saves the targets, their context and provenance under the revision it read and writes the paper's "Sample size" block | `plan_sample_size`, `save_sizing_targets` |
 | Pool generation | One draw from a strategy: `requested_size` (required), `oversample_factor`, greedy (error-minimizing) or random constrained (quota-based) `selection_algorithm`, `require_email`, `exclude_respondent_ids` -- stored on the pool, so one strategy feeds pools of any size | `generate_pool_from_strategy` |
 | The whole fielding chain | Strategy, pool, assignment, QML pin, surveys -- one call, capability-checked per step, stopping short of the send | `prepare_campaign_fielding` |
 | A campaign's synthetic responses | Surveys created, then filled -- returns a `task_id` | `simulate_campaign_responses` |
@@ -384,7 +386,13 @@ the instrument under the respondents who have already answered, and the
 representativeness figures above are then computed over two different
 questionnaires.
 
-It also stops one step short of the send: it never calls
+Both composites return a normal result whether or not the chain finished, so
+read it before reporting: `ready_to_invite: true` (fielding) or a `task_id`
+(simulation) means it finished; otherwise `error` and `detail` say why and
+`stopped_at_step` names the step, or is null when the call was refused before
+any step ran. The `mcp-campaign-tools` skill lists the parameters and steps.
+
+The fielding composite also stops one step short of the send: it never calls
 `send_campaign_invitations`, so committing a design to real respondents stays a
 separate, explicit decision made after you have read what the chain built.
 Recruitment is the point at which the strategy above becomes irreversible --
@@ -403,7 +411,8 @@ mail cannot be unsent -- so it is not something a chain should do on your behalf
 ### Practical Advice Pattern
 
 When advising on campaign design without adaptive optimization tools:
-1. **Over-sample hard-to-reach groups** by 20-30% using `oversample_factor` on the pool draw (`generate_pool_from_strategy`); the strategy carries no draw setting
+0. **Size the draw from the evidence and the saved plan**, never by hand. First read `get_sizing_evidence` and `plan_sample_size` (its `saved` record carries each value's `provenance`), then propose by the rules in the `sampling-theory` skill's `references/sizing-proposal.md`, citing each methodology passage you use for a rate or design effect by author, year and its `paper_id`. `plan_sample_size` returns `requested_size` and `oversample_factor` for the draw. Save with `save_sizing_targets` only when the user asks, passing the `revision` you read as `base_revision`; mark a *check this* value (both rates, group shares, anything `needs_confirmation`) `confirmed_via: "agent"` only when the user has stated or accepted it in the conversation. The full protocol is *Sizing a Project* in `sampling-theory`
+1. **Over-sample hard-to-reach groups** by raising their share in the strategy factor's `target_distribution` 20-30% above their population share (the shares must still sum to 1), and weight back afterwards. `oversample_factor` on the pool draw (`generate_pool_from_strategy`) is a different lever: it multiplies the whole draw's `requested_size` for expected non-response, the same for every group, and `plan_sample_size` returns its value
 2. **Use greedy selection** (`selection_algorithm: greedy`, the draw's default) to maximize initial representativeness
 3. **Check quality at milestones** (25%, 50%, 75% completion) via `get_bundle_quality`
 4. **Apply raking** post-collection to correct residual imbalances

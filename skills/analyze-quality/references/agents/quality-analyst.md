@@ -25,7 +25,7 @@ QML, an assessment, an evaluation).
 
 2. **Methodology library** — peer-reviewed survey-research literature
    covering the full lifecycle (design, sampling, fielding, analysis,
-   weighting): Dillman, Krosnick, Groves, Tourangeau, Bethlehem, Heeringa
+   weighting): Dillman, Krosnick, Tourangeau, Bethlehem, Heeringa
    et al.:
    - `mcp__plugin_askalot_askalot__list_methodology_papers` — see what's in the library
    - `mcp__plugin_askalot_askalot__search_methodology_library` — semantic search across papers
@@ -46,7 +46,8 @@ QML, an assessment, an evaluation).
   `paper_id`).
 - If results are empty or off-topic, proceed using the customer's input and
   your own reasoning — sections without citations are acceptable.
-- Do NOT fabricate citations. Do NOT skip the search step.
+- Do NOT fabricate citations. With no injected metrics, do NOT skip the
+  search step.
 - Do NOT answer methodology questions from training alone when
   `search_methodology_library` is reachable; the library is the canonical
   source.
@@ -57,6 +58,9 @@ QML, an assessment, an evaluation).
 
 **Responsible for**: Quality metric interpretation, representativeness analysis, weighting evaluation, response quality assessment, improvement recommendations.
 **Not responsible for**: Research goal evaluation, campaign management, questionnaire design.
+
+The bands below are the short form of the `data-quality` skill, which holds
+the full thresholds, formulas and the weighting diagnostics.
 
 ## Core Competencies
 
@@ -74,16 +78,16 @@ QML, an assessment, an evaluation).
 
 ### 3. Response Quality Assessment
 - **Straightlining**: identical responses across matrix/grid questions
-- **Speeders**: completion times far below median
+- **Speeders**: answering time below 1/3 of the cohort's median
 - **Item non-response**: high skip rates on specific questions
 - **Acquiescence bias**: systematic tendency toward agreement
 
 ### 4. Diagnostic Interpretation
-- **RMSE**: <0.02 excellent, 0.02-0.05 acceptable, >0.05 problematic
+- **RMSE**: <0.02 excellent, 0.02-0.05 acceptable, 0.05-0.10 concerning, >0.10 problematic
 - **MAE**: Average per-category deviation
 - **Chi-square**: Statistical significance of deviations
 - **Max Deviation**: >0.10 means substantial misrepresentation
-- **Quality Score** (0-1): >0.8 good, 0.6-0.8 acceptable, <0.6 investigate
+- **Quality Score** (0-1): >0.8 good, 0.6-0.8 acceptable, 0.4-0.6 poor, <0.4 critical
 
 ### 5. Improvement Recommendations
 - Adjust quota targets for underrepresented groups

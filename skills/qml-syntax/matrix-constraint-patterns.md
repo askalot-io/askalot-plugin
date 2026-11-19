@@ -8,6 +8,29 @@ must enforce structural integrity beyond simple cell-level domain bounds.
 For a matrix item `I_i` with outcome `S_i ∈ ℤ^{m × n}`, cell `S_{i,j,k}` is
 the value at row `j`, column `k`.
 
+## Unanswered cells
+
+A respondent can submit a matrix blank or with some cells empty; an empty cell
+reads `None`. What a pattern does then depends on how it reads the cell:
+
+- `==` / `!=` treat `None` as a value (`None == 7` is false, `None != 7` is true).
+- Arithmetic or an ordering on `None` (`sum([...])`, `>=`), and any cell read of
+  a wholly blank matrix, raises. A postcondition that raises is waived: the
+  answer is accepted unchecked and the survey is recorded `critical`, which
+  excludes it from dataset extraction.
+
+When every cell must be answered, put a completeness predicate **first** in the
+postcondition list (predicates are checked in order, and the first one that
+fails shows its hint). It is enforced at runtime only (`skipped_condition`):
+
+```yaml
+postcondition:
+  - predicate: |
+      quarterly_budget.outcome is not None and all([quarterly_budget.outcome[j][k] is not None
+                                                    for j in range(4) for k in range(4)])
+    hint: "Please fill in every cell"
+```
+
 ---
 
 ## Pattern 1 — Matrix Symmetry
@@ -47,7 +70,7 @@ Q_i := ⋀_{j=1..m} ⋀_{k=j+1..n} (S_{i,j,k} = S_{i,k,j})
         all([factor_relationships.outcome[j][k] == factor_relationships.outcome[k][j]
              for j in range(4) for k in range(4) if k > j])
       hint: "The relationship between A and B must equal the relationship between B and A"
-    # Optional: diagonal must be the maximum (self-relationship is total)
+    # Optional: the diagonal is fixed at the maximum (self-relationship is total)
     - predicate: |
         all([factor_relationships.outcome[j][j] == 10 for j in range(4)])
       hint: "Each factor's relationship with itself is maximal (10)"
@@ -57,9 +80,8 @@ Q_i := ⋀_{j=1..m} ⋀_{k=j+1..n} (S_{i,j,k} = S_{i,k,j})
 contradictory matrices (e.g., Price↔Quality = 7 but Quality↔Price = 3) that
 break downstream factor analysis or correlation computations.
 
-**Validation coverage:** Runtime-enforced (FlowProcessor) + Static-validated
-(ItemClassifier ≥ 1.14.0) — covers this pattern's exact form. Variants with
-non-literal range bounds (e.g. `range(j+1, 4)`), `zip` / `enumerate`,
+**Validation coverage:** enforced at runtime and verified by Z3 in this exact
+form. Variants with non-literal range bounds (e.g. `range(j+1, 4)`), `zip` / `enumerate`,
 multi-range BinOp starts, or `min` / `max` folds fall back to runtime
 enforcement only; `validate_qml_file` surfaces the gap via `coverage_gaps`.
 Prefer the `if k > j` filter form shown above when authoring triangular
@@ -104,12 +126,9 @@ Q_i := ⋀_{j=1..m} ( Σ_{k=1..n} S_{i,j,k} = T_i ) ∧ ( S_{i,j,k} ≥ 0 )
         all([sum([quarterly_budget.outcome[j][k] for k in range(4)]) == 100
              for j in range(4)])
       hint: "Each quarter's allocations must sum to exactly 100 (representing $100k)"
-    # All values non-negative (already covered by min: 0, but documented as constraint)
-    - predicate: |
-        all([quarterly_budget.outcome[j][k] >= 0
-             for j in range(4) for k in range(4)])
-      hint: "All allocations must be non-negative"
 ```
+
+Non-negativity needs no predicate: `min: 0` already enforces it.
 
 **Variant — column-wise totals (each column sums to fixed value):**
 
@@ -124,10 +143,11 @@ postcondition:
 **Why it matters:** Without the sum constraint, respondents can produce
 allocations that don't add up, making weighted aggregation meaningless.
 
-**Validation coverage:** Runtime-enforced (FlowProcessor) + Static-validated
-(ItemClassifier ≥ 1.14.0) — covers `sum([...]) == K` and `>= K` / `<= K`
-shapes shown above. Variants with `min` / `max` folds, runtime-bound totals
-(`sum([...]) == q_target.outcome`), or non-literal range bounds fall back
+**Validation coverage:** enforced at runtime, and `sum([...]) == K` (also
+`>= K` / `<= K`) is lowered to Z3. Because the sum raises on an empty cell (see
+"Unanswered cells"), the validator reports the predicate as `inexact_condition`
+and cannot call it infeasible. Variants with `min` / `max` folds, runtime-bound
+totals (`sum([...]) == q_target.outcome`), or non-literal range bounds fall back
 to runtime enforcement only; `validate_qml_file` surfaces the gap via
 `coverage_gaps`.
 
@@ -173,11 +193,20 @@ Q_i := ⋀_{j=1..m} ( ⋀_{k=1..n} 1 ≤ S_{i,j,k} ≤ n )
         all([len(set([product_attribute_ranks.outcome[j][k] for k in range(4)])) == 4
              for j in range(3)])
       hint: "Each rank (1-4) must be used exactly once per product"
-    # Each value must be in valid range (already covered by labels, but explicit)
-    - predicate: |
-        all([1 <= product_attribute_ranks.outcome[j][k] <= 4
-             for j in range(3) for k in range(4)])
-      hint: "Ranks must be between 1 and 4"
+```
+
+The value range needs no predicate: the `labels` keys already bound each cell.
+
+**Verified variant — pairwise inequality.** The `len(set(...))` form is
+enforced at runtime only. The same rule written as pairwise `!=` is verified by
+Z3 and accepts and refuses the same answers:
+
+```yaml
+postcondition:
+  - predicate: |
+      all([product_attribute_ranks.outcome[j][a] != product_attribute_ranks.outcome[j][b]
+           for j in range(3) for a in range(4) for b in range(4) if a < b])
+    hint: "Each rank (1-4) must be used exactly once per product"
 ```
 
 **Variant — distinct values across the entire matrix** (e.g., assigning unique
@@ -195,28 +224,24 @@ postcondition:
 into rating — respondents straightline (e.g., all 1s) and the ordinal
 information is lost.
 
-**Validation coverage:** Runtime-enforced (FlowProcessor) + Static-validated
-(ItemClassifier ≥ 1.14.0) — covers `len(set([...])) == K` shape shown above
-where the literal `K` matches the unrolled list length (canonical "all
-distinct" form). Variants with `set(...)` outside the `len(...) == K`
-pattern, or partial-distinctness shapes (`len(set(...)) == K` with `K < N`),
-fall back to runtime enforcement only; `validate_qml_file` surfaces the gap
-via `coverage_gaps`.
+**Validation coverage:** every `len(set([...])) == K` shape over the cells of
+an ordinary matrix is enforced at runtime only: a set can hold an empty cell's
+`None`, which the Z3 lowering cannot model, so the validator reports
+`skipped_condition` and `validate_qml_file` lists the gap under
+`coverage_gaps`. Both forms accept a row with one empty cell (`None` counts as
+a fourth distinct value); add the completeness predicate from "Unanswered
+cells" to refuse it.
 
 ---
 
 ## Combining Patterns
 
 A single matrix item can carry multiple postconditions. For example, a
-correlation matrix that is both symmetric AND has unit diagonal AND has
-bounded off-diagonals would combine all three pattern fragments. Each
-predicate is ANDed; supply a specific `hint:` for each so the respondent
+correlation matrix that is symmetric, has a fixed diagonal and has bounded
+off-diagonals carries one predicate for each rule. The predicates are ANDed; supply a specific `hint:` for each so the respondent
 knows which constraint failed.
 
 ## Reference
 
 Saghelyi, P. — "Formal Verification of Questionnaires", Section "Extension to
-Complex Item Types — Common Constraint Patterns". The patterns are formalized
-in `definitions.tex` (Ranking, Allocation, Matrix Symmetry) and demonstrated
-in concrete QML in `appendix.tex` (Product Comparison Matrix; Market Research
-Survey).
+Complex Item Types — Common Constraint Patterns".

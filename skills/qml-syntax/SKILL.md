@@ -21,10 +21,20 @@ This lowers cognitive load: focus on translating requirements into constraints. 
 
 QML is a YAML-based markup language for creating formally verified survey questionnaires. All code blocks are statically analyzed by a Z3 SMT solver for reachability, constraint satisfaction, and logical consistency. This means **only the Python subset that Z3 can reason about** should be used in code blocks — features that work at runtime but are invisible to the solver undermine the formal verification model.
 
+## Contents
+
+- §1 Root structure and ids · §2 Blocks, block guards · §2b Block kinds (`count`-capped Group, Roster)
+- §3 Item kinds (Comment, Question, QuestionGroup, MatrixQuestion, external items)
+- §4 Input controls (Switch, Radio, Checkbox, Dropdown, Editbox, Slider, Range, Textarea)
+- §5 Preconditions and postconditions, `None` rules
+- §6 codeInit, codeBlocks, the verified Python subset, variable discipline
+- §7 Patterns · §8 Pitfalls · §9 Conditional messages, branching, QuestionGroup aggregation · §10 Pre-validation checks · complete example
+- Reference files beside this one: [`matrix-constraint-patterns.md`](matrix-constraint-patterns.md) (matrix postcondition patterns), [`complex-types.md`](complex-types.md) (QuestionGroup / MatrixQuestion examples)
+
 ## Core Structure
 
 ### 1. Root Structure
-Every QML file must begin with:
+Every QML file begins with:
 ```yaml
 qmlVersion: "2.0"
 questionnaire:
@@ -33,8 +43,25 @@ questionnaire:
     - # Block definitions
 ```
 
+`qmlVersion` declares the minimum schema version the file needs; the loader refuses a
+file whose major version differs from the supported one (2).
+
+**Ids.** Conditions and codeBlocks read an item by its id (`<id>.outcome`) from anywhere
+in the file, so give every item an id unique across the whole file. An item id is a
+Python identifier: letters, digits and underscores, not starting with a digit, and
+neither a Python keyword nor a built-in or module name (`sum`, `len`, `math`); the ids
+`codeInit` and `__init__` are reserved. The loader refuses any other id (`q-1`, `1`).
+
 ### 2. Blocks - The Primary Organization Unit
-Blocks group related items (questions) together. Items within a block can depend on each other, but cross-block dependencies should be minimized for better maintainability and clearer survey flow.
+A block has three jobs:
+
+1. **Grouping** — a topical section of related items.
+2. **Branching** — one guard for a run of items: the block-level `precondition` gates every item in the block.
+3. **Repetition** — `kind: Roster` asks its items once per selected entity (see 2b).
+
+**The branching rule:** a run of two or more items that share one guard belongs in its own block carrying that guard; an item keeps its own precondition only for what is specific to it. Never copy one predicate onto every item of a run.
+
+Items within a block can depend on each other, but cross-block dependencies should be minimized for better maintainability and clearer survey flow.
 
 ```yaml
 blocks:
@@ -47,6 +74,7 @@ blocks:
 **Best Practices for Blocks:**
 - Use meaningful block IDs that describe the section (e.g., `b_demographics`, `b_preferences`, `b_satisfaction`)
 - Group thematically related questions together
+- Give each branch its own block carrying the branch's guard
 - Keep dependencies within blocks whenever possible
 - Consider blocks as logical survey sections or pages
 
@@ -58,6 +86,15 @@ module gated on a core item, a renter-costs block gated on tenure — without re
 gate on every item. A block-level `postcondition` is evaluated before each inner item's
 own postconditions. Read `qml-preconditions` ("Hoisting Shared Gates") for when to hoist
 a gate to the block and when to factor gated items into their own block.
+
+The guard reads only outcomes and variables produced **before** the block. A block guard
+is re-checked before every item, so one on a variable a codeBlock inside the same block
+assigns changes mid-block, and once two items write it the publish gate reports a
+dependency cycle. Place a guarded block after the block that produces its gate: items
+are asked in dependency order across the whole file, so a guard that reads a later
+block's item pulls that item forward, ahead of its own block. QML
+blocks do not nest; a branch inside a branch is a block guard plus an item precondition,
+or a further sibling block. A Roster can carry a guard too: false skips the whole loop.
 
 ```yaml
 - id: b_renter_costs
@@ -212,9 +249,14 @@ the static label instead of the thing it is about.
 derives (for example, widening a head-count into `person_mask`); either way the labels
 must cover every bit the mask can set.
 
+Inside the Roster, `q.outcome` is the current iteration's answer. Outside it, read one
+iteration by its label key: `q.outcomes.get(4, 0)` (the key is absent when that
+iteration did not run, so `q.outcomes[4]` raises and skips the reading item). Such a
+read is enforced at runtime only and reported as `skipped_condition`.
+
 ### 3. Items - The Question Types
 
-QML supports four types of items:
+QML supports four kinds of items. `title` is optional in the schema; give every item one.
 
 #### 3.1 Comment (Information Display)
 Used for instructions or informational text:
@@ -237,7 +279,7 @@ For individual questions with scalar outcomes:
 ```
 
 #### 3.3 QuestionGroup (List of Related Questions)
-For multiple questions sharing the same response format. The outcome is a list of integers:
+For multiple questions sharing the same response format. The outcome is a list of integers (a list of `[low, high]` pairs for a Range control):
 ```yaml
 - id: q_satisfaction_aspects
   kind: QuestionGroup
@@ -257,7 +299,7 @@ For multiple questions sharing the same response format. The outcome is a list o
 ```
 
 #### 3.4 MatrixQuestion (Grid of Responses)
-For questions with row/column structure. The outcome is a table of integers.
+For questions with row/column structure. The outcome is a table of integers (a table of `[low, high]` pairs for a Range control).
 
 For structural postcondition patterns specific to matrices — symmetry, fixed-sum
 allocation, and ranking/distinctness — see [`matrix-constraint-patterns.md`](matrix-constraint-patterns.md).
@@ -283,21 +325,44 @@ allocation, and ranking/distinctness — see [`matrix-constraint-patterns.md`](m
       3: "Fluent"
 ```
 
+#### 3.5 External items (`external: true`)
+When a gate depends on a value no question collects (a sample-file flag, a prior-wave
+answer, a split-ballot group), declare it as an ordinary Question with `external: true`.
+The platform tries to pre-answer it from the respondent's record when the survey starts
+(the source is mapped per campaign, outside the QML); with no usable value the item is
+asked like any other. Z3 treats it exactly as the same item without the flag. Use this
+instead of a bare undefined name or a `codeInit` constant nothing reassigns, both of
+which the validator reports as errors (§6.7).
+```yaml
+- id: q_rotate_out
+  kind: Question
+  title: "Is this respondent rotating out this wave?"
+  external: true
+  input:
+    control: Radio
+    labels:
+      0: "No"
+      1: "Yes"
+```
+
 ### 4. Input Controls
 
-Every Question, QuestionGroup, and MatrixQuestion MUST have an `input` block. The required properties depend on the control type:
+Every Question, QuestionGroup, and MatrixQuestion needs an `input` block; a Comment takes none. The properties depend on the control type, and the loader refuses a key the control does not declare:
 
-- **Range-based controls** (Editbox, Slider, Range): require `min` and `max`
+- **Range-based controls** (Editbox, Slider, Range): require `min` and `max`. An Editbox / Slider answer outside them, or with a decimal part, is refused at submit; `min`, `max` and a Slider's `step` are integers and an Editbox takes no `step`, so scale a decimal quantity (cents, not euros)
 - **Label-based controls** (Radio, Dropdown, Checkbox): require `labels` mapping integer keys to display text
-- **Switch**: requires `on` and `off` display text
+- **Switch**: takes `on` and `off` display text. The schema does not require them, but always write both (§4.1)
 
 **`default` is a hint, never an answer.** The renderer shows it — a marked
 Radio option, the Dropdown's placeholder, the Editbox's placeholder, the resting
-position of a Slider or Range thumb — but records nothing until the respondent
+position of a Slider thumb or the two Range thumbs (a Range `default` is a pair
+of whole numbers `[low, high]`) — but records nothing until the respondent
 interacts: Next on an untouched item stores no answer (`None`). So do not use
 `default` to make an item "pre-answered", and do not rely on it to satisfy a
 postcondition; a required answer is a postcondition's job, and "none of these"
-is a declared option, not an untouched Checkbox.
+is a declared option, not an untouched Checkbox. A `default` must also sit inside the
+item's answer domain (a label key, between `min` and `max`, a Range pair with
+`min <= low <= high <= max`): a default no answer could match does not load.
 
 #### 4.1 Switch (Binary Choice)
 ```yaml
@@ -309,11 +374,11 @@ input:
 ```
 
 The outcome is `1` for `on` and `0` for `off`. `on`/`off` is the spelling the JSON
-schema declares. The renderer also accepts `true`/`false` as label keys (a spelling many
-existing instruments use — YAML parses them as booleans and the schema does not reject
-them), so read either in a file you are editing; write `on`/`off` in new files so the
-schema and the file say the same thing. Never leave a Switch without labels: it renders
-as a bare toggle and the respondent cannot tell which way is "yes".
+schema declares. YAML reads the keys `on`/`off`, `yes`/`no` and `true`/`false` all as
+booleans, and the loader maps every one of them back to `on`/`off`, so a file you are
+editing may spell them `true:`/`false:`; write `on`/`off` in new files. Never leave a
+Switch without labels: it loads, but renders as a bare toggle and the respondent cannot
+tell which way is "yes".
 
 #### 4.2 Radio (Single Selection)
 ```yaml
@@ -337,6 +402,11 @@ input:
     8: "Option D"   # Binary value: 8
   default: 0  # Optional, not rendered: every box starts unticked
 ```
+
+The outcome is the sum of the ticked keys (a bitmask), so every key is a positive power
+of 2; the loader refuses any other key. Test one option with a literal mask,
+`q_x.outcome & 4 > 0` ("Option C is ticked", verified by Z3); `q_x.outcome == 4` means
+Option C and nothing else.
 
 #### 4.4 Dropdown (Single Selection from List)
 ```yaml
@@ -377,7 +447,8 @@ input:
 ```
 
 #### 4.7 Range (Interval Selection)
-Captures a min-max interval from the respondent. The two values are encoded as a single integer via Szudzik pairing.
+Captures a min-max interval from the respondent. The outcome is a two-item list
+`[low, high]` with `min <= low <= high <= max`; a `default`, if given, is a pair too.
 ```yaml
 input:
   control: Range
@@ -386,17 +457,39 @@ input:
   step: 50
   left: "$"
   right: ""
+  default: [200, 600]
   labels:
     0: "$0"
     500: "$500"
     1000: "$1000"
 ```
 
+Read the ends by name — `q.outcome.low` is the low end, `q.outcome.high` the high end;
+in a Range MatrixQuestion, `m.outcome[j][k].low` / `m.outcome[j][k].high` with literal
+indices. There is no index form: `q.outcome[0]` fails at runtime, and so does comparing the answer with a list (`q.outcome == [2, 8]`). A codeBlock sets a
+Range answer with a pair, `q.outcome = [low, high]`:
+```yaml
+precondition:
+  - predicate: q_price_range.outcome.high - q_price_range.outcome.low <= 100
+```
+
+- **No `is not None` guard.** An unanswered Range leaves the condition undecided at
+  runtime (a precondition skips its item), and a guard reads the bare pair, which
+  the validator cannot model — the whole condition would become a `skipped_condition`.
+- **Verified vs runtime-only.** Z3 proves conditions over `q.outcome.low` / `.high` of a
+  Range Question (also inside a Roster or a capped Group) and over the ends of a Range
+  matrix cell, and over `qg.outcome[i].low` / `.high` of a Range QuestionGroup (literal
+  `i`). A bare `q.outcome` read of a Range (e.g. `q.outcome > 5`), a positional read
+  (`qg.outcome[i][0]`), and a fold (`sum`, `all`, ...) over Range matrix cells are
+  applied at runtime only and reported as `skipped_condition` warnings.
+
 #### 4.8 Textarea (Free Text)
 
-Captures open-ended text. The outcome is a **string**, not an integer — Z3 ignores it
-entirely (no variable is created), so a Textarea outcome must never appear in a
-precondition, postcondition, or codeBlock predicate. Use it for verbatim answers only.
+Captures open-ended text. The outcome is a **string**, not an integer, and Z3 has no
+model of what the text says, so no precondition, postcondition or codeBlock may compare
+or compute on a Textarea's content. Whether it was answered is the one thing logic may
+read: `t.outcome is not None` (for an "Other, specify":
+`q.outcome != 96 or t.outcome is not None`).
 
 ```yaml
 input:
@@ -416,7 +509,7 @@ input:
 | Multiple selection (hobbies, symptoms) | Checkbox | `labels` (power-of-2 keys) |
 | Single selection, few options (2-5 items) | Radio | `labels` |
 | Single selection, many options (6+ items) | Dropdown | `labels` |
-| Open-ended text (verbatims, descriptions) | Textarea | optional `placeholder`/`maxLength`; string outcome, invisible to logic |
+| Open-ended text (verbatims, descriptions) | Textarea | optional `placeholder`/`maxLength`; string outcome; logic may read only whether it was answered |
 
 **Special case — MatrixQuestion cells:**
 - 2-3 options per cell: use **Radio** (fits in the grid)
@@ -462,11 +555,25 @@ parenthesised, because `and` binds tighter than `or`) or by
 repeating the referenced item's own gate. The two differ: the guard leaves the owner
 reachable wherever it was, while repeating the gate narrows the owner to the referent's
 branch. Guard when the owner should stay independently reachable; repeat the gate when
-the two belong together — if `q_pregnant` is asked only when
+the two belong together. The guard costs no verification: the validator models whether
+an item was answered, so `q_x.outcome is None` / `is not None` on a plain question is
+proven like any other comparison, provided the guard comes before every other read of
+that outcome, and of any variable, in the condition (written after one, it is reported as
+`skipped_condition`; on a Roster or capped-Group member, a matrix or a Range item it
+is runtime-only; a QuestionGroup's `qg.outcome is not None` is proven, §9.3). If
+`q_pregnant` is asked only when
 `q_sex.outcome == 2 and q_age.outcome <= 49`, an item gated on `q_pregnant.outcome != 1`
 should repeat that gate rather than rely on `None != 1` happening to be true. This is the
 same "no inheritance" rule `qml-preconditions` states for sibling items, applied across
 gates.
+
+A comparison that fails on `None` (ordering, arithmetic) on an item that may be
+unanswered is proven only where the failure decides the condition: under `and`, or in
+the last operand of an `or`. Under `not`, in an earlier `or` operand, or anywhere in a
+postcondition, the validator reports `inexact_condition` (warning): a contradiction is
+still found, but the condition is not proven always reachable / always satisfied. The
+same guard clears it (`q_x.outcome is not None and (…)` in a precondition,
+`q_x.outcome is None or (…)` in a postcondition).
 
 An item that **was** asked and left unanswered is a separate, runtime case: see
 `qml-preconditions`.
@@ -507,12 +614,30 @@ control cannot express.
   postcondition:
     - predicate: q_income_contributors.outcome <= q_household_size.outcome
       hint: "Contributors cannot exceed household size"
-    - predicate: q_income_contributors.outcome >= 1
-      hint: "At least one person must contribute"
   input:
     control: Editbox
     min: 1
     max: 10
+```
+
+Do not restate the control's own bounds as a postcondition (`>= 1` beside `min: 1`): the
+control already enforces them, and the validator reports `duplicate_input_bound`. Write
+each `hint` so the respondent can tell what to correct ("Contributors cannot exceed
+household size", not "Invalid input").
+
+**An invented check is marked `invented: true`** (schema 2.7.0). A questionnaire
+import writes it on a postcondition the source did not state as a hard rule (a soft
+edit, or a check derived from an interviewer instruction such as "probe if hours >
+80"), so the researcher can confirm or change it. It is author metadata only: the
+survey, Z3 and the publish gate treat the check exactly like an unmarked one, and
+respondents and translators never see it. Only postconditions take the key. Never add
+it when writing QML yourself; remove it once the researcher has confirmed the check.
+
+```yaml
+postcondition:
+  - predicate: q_hours.outcome <= 80
+    hint: "More than 80 hours a week: please check the number"
+    invented: true
 ```
 
 ### 6. Code Blocks and Variables
@@ -528,29 +653,29 @@ questionnaire:
     # These variables are global throughout the questionnaire
     total_score = 0
     risk_level = "low"
-    
-blocks:
-  - id: b_first
-    items:
-      - id: q_first
-        codeBlock: |
-          # Can access and modify global variables
-          total_score += 10
-          new_var = 5  # This becomes globally accessible
-          
-  - id: b_second
-    items:
-      - id: q_second
-        precondition:
-          # Can reference any global variable in conditions
-          - predicate: new_var > 3 and total_score >= 10
+
+  blocks:
+    - id: b_first
+      items:
+        - id: q_first
+          # kind, title, input ...
+          codeBlock: |
+            # Can access and modify global variables
+            total_score += 10
+            new_var = 5  # This becomes globally accessible
+
+    - id: b_second
+      items:
+        - id: q_second
+          # kind, title, input ...
+          precondition:
+            # Can reference any global variable in conditions
+            - predicate: new_var > 3 and total_score >= 10
 ```
 
 #### 6.2 Questionnaire Initialization (codeInit)
-The `codeInit` section runs before any blocks or items are processed. Use it to:
-- Initialize global variables
-- Pre-set item outcomes (advanced use)
-- Set up initial state for the questionnaire
+The `codeInit` section runs once, before any block or item is processed. Use it to give
+every routing or accumulator variable its starting value.
 
 ```yaml
 questionnaire:
@@ -590,91 +715,77 @@ Execute Python code after item responses:
 
 #### 6.4 Supported Python Features (Z3-Verifiable Subset)
 
-Code blocks are statically analyzed by the Z3 SMT solver. **Only use features listed here** — anything else either raises an error during validation or silently returns 0, creating unverifiable logic.
+Code blocks are statically analyzed by the Z3 SMT solver. **Only use features listed here.** Anything else is either refused (an `unsafe_code` error) or runs at runtime while the validator leaves the variable it computes unconstrained, so every gate reading that variable is unverified.
 
 **Data Types:**
-- **Integers**: All numeric values are treated as integers
-- **Booleans**: Converted to integers (1=True, 0=False). Use `0`/`1` in code for clarity.
-- **Strings**: Converted to integer hash values internally — usable for variable assignment and equality checks only
-- **Lists/Tuples/Sets**: Supported only as **literal containers** in `for` loops and `in`/`not in` membership tests
+- **Integers**: every number is a whole number
+- **Booleans**: `True`/`False` count as `1`/`0`. Use `0`/`1` in code for clarity.
+- **Strings**: usable for assignment and for `==` / `!=` / `in [literals]` tests only (`track = "detailed"`, `track == "detailed"`). Arithmetic, ordering or a method on a string is not verified.
+- **Lists/Tuples/Sets**: only as **literals** in `in`/`not in` tests and inside `sum([...])`
 
 **Operators:**
-- **Arithmetic**: `+`, `-`, `*`, `//` (floor division), `%` (modulo)
+- **Arithmetic**: `+`, `-`, `*`, and `//` (floor division) or `%` (modulo) **by a positive integer literal** (`x // 2`, `x % 3`; by a variable they run but are not verified). Whole numbers only: `/`, a decimal literal, `float()`, a negative power and fractional functions (`math.sqrt`, `statistics.mean`, `random.random`) make the QML refuse to load. Scale instead (`100 * part // 4`).
+- **Bit test**: `x & <literal>` (the Checkbox idiom, §4.3)
 - **Comparison**: `<`, `<=`, `>`, `>=`, `==`, `!=` (chained comparisons like `a < b < c` also work)
 - **Boolean**: `and`, `or`, `not`
 - **Membership**: `in`, `not in` (for list, tuple, set literals)
 - **Unary**: `-` (negation), `+`
 
 **Control Flow:**
-- **Conditionals**: `if`, `elif`, `else` (nested to arbitrary depth)
-- **Loops**: `for` loops with restrictions (loops are **unrolled** statically):
-  - `for i in range(n)`: where n must be a constant 0-20
-  - `for item in [list]`: literal container must have ≤20 elements
-  - `for item in (tuple)`: literal container must have ≤20 elements
-  - `for item in {set}`: literal container must have ≤20 elements
+- **Conditionals**: `if`, `elif`, `else` (nested to arbitrary depth), and the ternary `a if c else b`
+- **Loops are not verified.** A `for` or `while` loop runs, but the validator does not follow it: every variable assigned inside is unconstrained afterwards. Write an accumulation out (`a + b + c`) or as `sum([a, b, c])`.
 
 **Variable Operations:**
 - **Assignment**: `variable = value`
-- **Multi-target assignment**: `a = b = value`
+- **Multi-target assignment**: `a = b = value` (tuple unpacking `a, b = 1, 2` runs but is not verified)
 - **Augmented Assignment**: `+=`, `-=`, `*=`, `//=`, `%=`
 - **Item Outcome Access**: `item_id.outcome` (read)
-- **Item Outcome Assignment**: `item_id.outcome = value` (write)
+- **Item Outcome Assignment**: `item_id.outcome = value` (write). A codeBlock that answers an item the walk has not reached yet means that item is never asked.
 
-**Built-in Functions (Strict):**
-- **`range(n)`**: Creates sequence from 0 to n-1 (n must be ≤20)
-- **`int(expr)`**: Explicit cast (bool → int)
-- **`bool(expr)`**: Explicit cast (int → bool, where 0=False)
-- **In imperative code blocks, prefer explicit arithmetic** — `sum`, `len`, `max`, `min`, `abs`, `sorted`, `append` etc. are not lowered when used to *compute a code-block variable*, so a `total = sum([...])` in a codeBlock is invisible to the solver. **This does NOT apply to matrix postconditions:** the canonical *folded shapes* over matrix cells (`sum([...]) == K`, `len(set([...])) == N`, `all([...])`/`any([...])` over comprehensions with **literal** range bounds) ARE lowered to Z3 and verified — see `matrix-constraint-patterns.md`. Don't avoid them.
+**Built-in Functions:**
+- **`sum([...])`** over a literal list or a comprehension with literal `range` bounds, **`abs(x)`**, and **`int(<comparison>)`** (`int(q.outcome > 3)` is 0 or 1) are verified.
+- `len`, `min`, `max`, `sorted`, `bool()` and `**` run but are not verified when they compute a code-block variable. Use explicit arithmetic and `if`/`else` instead.
+- `math`, `random`, `statistics`, `itertools`, `functools`, `collections` and `re` are available without `import` (whole-number members only); nothing they compute is verified.
 
 #### 6.5 NOT Supported in Code Blocks
 
-The following features either raise validation errors or silently return 0 in the Z3 solver — do not use them.
-
-**Forbidden (validation error):**
+**Refused (`unsafe_code` error — the file validates as invalid):**
 ```python
 import math                    # No imports
-def calculate(): pass          # No function definitions
+def calculate(): pass          # No function definitions (the call is refused)
+f = lambda x: x*2              # No lambda functions (the call is refused)
 class MyClass: pass            # No class definitions
 ```
 
-**Always forbidden — genuinely no Z3 model, never use anywhere:**
+**Runs, but never verified — do not use:**
 ```python
-my_list.append(value)          # No method calls (.append/.upper/.index ...)
-lambda x: x*2                  # No lambda functions
-data = {}                      # No dictionaries
-name.upper()                   # No string operations
+my_list.append(value)          # Method calls (.append/.upper/.index ...)
+data = {}                      # Dictionaries
+count = len(my_list)           # len / min / max / sorted
+result = [x*2 for x in range(5)]   # A list kept in a variable
+while condition: pass          # while loops
+for i in range(5): total += i  # for loops, break/continue
+try: ...                       # try/except (naming `Exception` is an undefined-name error)
+except: ...
 ```
 
-**Code-block-only restriction — works at runtime but NOT lowered when computing
-a code-block variable (use explicit arithmetic instead):**
+**Folds inside a precondition or postcondition are a different case.** Over
+MatrixQuestion cells and QuestionGroup answers, `sum([...])`, `all([...])` and
+`any([...])` over comprehensions with **literal** range bounds are lowered to Z3:
 ```python
-total = sum(values)            # In a codeBlock: use q1.outcome + q2.outcome + ...
-count = len(my_list)           # In a codeBlock: no length model
-result = [x*2 for x in range(5)]   # In a codeBlock: unroll by hand
+sum([m.outcome[0][k] for k in range(4)]) == 100                  # lowered (z3.Sum)
+all([m.outcome[j][k] >= 1 for j in range(3) for k in range(4)])  # lowered (And)
+all([m.outcome[j][k] == m.outcome[k][j] for j in range(4) for k in range(4) if k > j])
 ```
+Runtime-only (reported as `skipped_condition`, listed under `coverage_gaps`):
+`len(set([...])) == N` over matrix cells or QuestionGroup answers, `min`/`max` folds,
+non-literal range bounds (`range(j+1, 4)`), and the whole answer or a whole row read as
+a value (`sum(qg.outcome)`, `m.outcome[0]`). A fold that does arithmetic or an ordering
+on a cell (`sum`, `>=`) raises when a cell is unanswered; see
+`matrix-constraint-patterns.md` ("Unanswered cells") for what that costs and how to
+refuse an incomplete answer.
 
-**BUT the canonical FOLDED SHAPES over matrix cells ARE verified — in
-POSTCONDITIONS (see `matrix-constraint-patterns.md`):**
-```python
-sum([m.outcome[0][k] for k in range(4)]) == 100     # verified (z3.Sum)
-len(set([m.outcome[j][0] for j in range(3)])) == 3  # verified (Distinct, K == N)
-all([m.outcome[j][k] >= 1 for j in range(3) for k in range(4)])  # verified (And)
-```
-Runtime-only (fall back to a `coverage_gap`, not verified): `min`/`max` folds,
-non-literal range bounds (`range(j+1, 4)`), partial distinctness
-(`len(set(...)) == K` with `K < N`), runtime-bound totals (`== q_target.outcome`),
-and any fold over a **QuestionGroup** vector (`qg.outcome[i]` has no per-question
-Z3 model — see §9.3).
-
-**Unsupported control flow:**
-```python
-while condition: pass          # No while loops
-for i in range(5): break       # No break/continue
-try: pass                      # No exception handling
-except: pass
-```
-
-**Note:** `print()` is a no-op that returns 0 — harmless but useless.
+`print()` runs and its output is discarded.
 
 **Allowed Examples:**
 ```python
@@ -687,19 +798,8 @@ if age >= 18:
 else:
     adult = 0
 
-# Boolean logic
-eligible = (age >= 18) and (income > 50000)
-
-# For loops with range
-count = 0
-for i in range(5):
-    count += i
-
-# For loops with containers
-scores = [10, 20, 30]
-total = 0
-for score in scores:
-    total += score
+# A 0/1 flag from a comparison
+eligible = int(age >= 18 and income > 50000)
 
 # Membership tests
 if q_choice.outcome in [1, 2, 3]:
@@ -710,8 +810,8 @@ elif q_choice.outcome in [4, 5]:
 # Deriving a value from multiple outcomes (justified — not a pass-through copy)
 age_difference = q_spouse_age.outcome - q_age.outcome
 
-# Setting outcomes programmatically
-if skip_section:
+# Answering a later item from code: q_optional is then never asked on this path
+if q_owns_car.outcome == 0:
     q_optional.outcome = 0
 ```
 
@@ -734,29 +834,24 @@ Code blocks execute in this global sequence:
 questionnaire:
   codeInit: |
     step = 1  # Global variable initialized
-    
-blocks:
-  - id: b_main
-    items:
-      - id: q1
-        codeBlock: |
-          step = 2  # Modified globally
-          result1 = q1.outcome * 10
-          
-      - id: q2
-        precondition:
-          - predicate: step == 2  # Can check the modified value
-        codeBlock: |
-          step = 3
-          result2 = result1 + q2.outcome  # Can access result1
-```
 
-**Important Notes:**
-- Variables don't need declaration - they're created on first assignment
-- All numeric operations use integer arithmetic
-- Boolean values are automatically converted to 0/1
-- String values have very limited support (mainly for categorization)
-- The Z3 constraint solver validates all code paths for consistency
+  blocks:
+    - id: b_main
+      items:
+        - id: q1
+          # kind, title, input ...
+          codeBlock: |
+            step = 2  # Modified globally
+            result1 = q1.outcome * 10
+
+        - id: q2
+          # kind, title, input ...
+          precondition:
+            - predicate: step == 2  # Can check the modified value
+          codeBlock: |
+            step = 3
+            result2 = result1 + q2.outcome  # Can access result1
+```
 
 #### 6.7 State Variable Discipline
 
@@ -791,9 +886,11 @@ placeholder:
 **Bare-name ban.** Every identifier in every predicate must resolve to an item id
 (`q_x.outcome`) or a variable some `codeBlock` produces — nothing else exists at runtime.
 A name with no producer anywhere in the file is a **phantom variable**: the predicate
-evaluation namespace is closed (no runtime context is injected), so the predicate fails
-open at runtime (treated as true) and is a free symbol to the validator (treated as
-satisfiable). The intended logic enforces nothing, statically and at runtime.
+evaluation namespace is closed (no runtime context is injected), so reading it raises.
+A precondition that raises skips its item for every respondent; a postcondition that
+raises accepts every answer unchecked and marks the survey `critical`. The validator
+reports the name as `undefined_name` (error). If the value comes from outside the
+interview, declare an external item (§3.5).
 
 **Pass-through aliases are not variables.** A variable whose only assignment copies one
 outcome unchanged adds indirection for nothing and shrinks verification coverage:
@@ -810,10 +907,11 @@ precondition:
   - predicate: q_smoking.outcome == 1
 ```
 
-**The validator enforces this discipline.** Undefined names are **errors** (the file fails
-validation); a frozen gate classifies as dead code (an unreachable-item error); write-only
-variables and pass-through aliases draw **warnings**. Treat every such finding as a
-fix-item, not noise.
+**The validator enforces this discipline.** `undefined_name` and `frozen_variable` (a
+`codeInit` variable a condition reads and no codeBlock assigns, whether the gate comes out
+always true or always false) are **errors**: the file fails validation.
+`write_only_variable` and `pass_through_alias` are **warnings**. Treat every such finding
+as a fix-item, not noise.
 
 ### 7. Best Practices and Design Patterns
 
@@ -895,19 +993,9 @@ experience to the industry, and a respondent can always satisfy it by correcting
 mistyped number. The safety-officer requirement is not — no correction exists for "we do
 not have one" — so it is recorded through routing and counted at analysis.
 
-**What the Validator Handles Automatically:**
-- Path exploration and reachability analysis
-- Constraint satisfaction checking
-- Logical consistency verification
-- Dead-end detection
-- Circular dependency resolution
-
-**What You Should Focus On:**
-- Clear question formulation
-- Appropriate value definitions (ranges for Editbox/Slider/Range, labels for Radio/Dropdown/Checkbox)
-- Simple, direct preconditions
-- Validation rules as postconditions
-- Integer-based outcomes for all responses
+The validator then checks reachability, postcondition feasibility and global
+consistency, and reports a dependency cycle as an error (`dependency_cycle`); it does
+not resolve one for you.
 
 #### 7.2 Block Organization
 ```yaml
@@ -928,6 +1016,14 @@ blocks:
     title: "Your Experience"
     items:
       # Main survey questions
+
+  # Branch Block: one guard for the whole run of items
+  - id: b_car_owners
+    title: "Your Car"
+    precondition:
+      - predicate: q_has_car.outcome == 1
+    items:
+      # Questions only car owners answer
       
   # Closing Block
   - id: b_closing
@@ -937,35 +1033,40 @@ blocks:
 ```
 
 #### 7.3 Progressive Disclosure Pattern
-Show questions progressively based on previous answers:
+Show questions progressively based on previous answers. The follow-ups share one guard,
+so they form their own block carrying it:
 ```yaml
-- id: q_has_car
-  kind: Question
-  title: "Do you own a car?"
-  input:
-    control: Switch
-    
-- id: q_car_brand
-  kind: Question
-  title: "What is your car's brand?"
+- id: b_car
+  items:
+    - id: q_has_car
+      kind: Question
+      title: "Do you own a car?"
+      input:
+        control: Switch
+        on: "Yes"
+        off: "No"
+
+- id: b_car_details
   precondition:
     - predicate: q_has_car.outcome == 1
-  input:
-    control: Dropdown
-    labels:
-      1: "Toyota"
-      2: "Honda"
-      3: "Ford"
-      
-- id: q_car_satisfaction
-  kind: Question
-  title: "How satisfied are you with your car?"
-  precondition:
-    - predicate: q_has_car.outcome == 1
-  input:
-    control: Slider
-    min: 0
-    max: 10
+  items:
+    - id: q_car_brand
+      kind: Question
+      title: "What is your car's brand?"
+      input:
+        control: Dropdown
+        labels:
+          1: "Toyota"
+          2: "Honda"
+          3: "Ford"
+
+    - id: q_car_satisfaction
+      kind: Question
+      title: "How satisfied are you with your car?"
+      input:
+        control: Slider
+        min: 0
+        max: 10
 ```
 
 #### 7.3b Screen-Out Routing Pattern
@@ -1007,74 +1108,46 @@ eligibility rates, mis-scope counts and refusal rates measurable at all.
 Do not write `postcondition: q_age_ok.outcome == 1` on the screener: it refuses the *No*
 instead of routing it, and the respondent cannot leave the item.
 
-#### 7.4 Data Quality Patterns
-Ensure response quality with validation:
-```yaml
-- id: q_age
-  kind: Question
-  title: "Enter your age"
-  input:
-    control: Editbox
-    min: 18
-    max: 120
-    
-- id: q_years_experience
-  kind: Question  
-  title: "Years of work experience"
-  postcondition:
-    - predicate: q_years_experience.outcome <= (q_age.outcome - 16)
-      hint: "Work experience cannot exceed your working age"
-  input:
-    control: Editbox
-    min: 0
-    max: 60
-```
-
-#### 7.5 Scoring and Categorization Pattern
-Use integer variables for accumulating scores. The Z3 solver can reason about integer arithmetic and conditionals, enabling full verification of scoring logic.
+#### 7.4 Scoring Pattern
+Accumulate a score in an integer variable and gate on the score itself. A second
+variable that only re-labels the score (`risk_category = "high"`) is worth creating
+only when several gates read it (§6.7).
 ```yaml
 questionnaire:
   codeInit: |
     risk_score = 0
 
-blocks:
-  - id: b_risk_assessment
-    items:
-      - id: q_smoking
-        kind: Question
-        title: "Do you smoke?"
-        codeBlock: |
-          if q_smoking.outcome == 1:
-              risk_score += 20
-        input:
-          control: Switch
+  blocks:
+    - id: b_risk_assessment
+      items:
+        - id: q_smoking
+          kind: Question
+          title: "Do you smoke?"
+          codeBlock: |
+            if q_smoking.outcome == 1:
+                risk_score += 20
+          input:
+            control: Switch
+            on: "Yes"
+            off: "No"
 
-      - id: q_exercise_frequency
-        kind: Question
-        title: "Weekly exercise frequency"
-        codeBlock: |
-          if q_exercise_frequency.outcome < 3:
-              risk_score += 10
-        input:
-          control: Editbox
-          min: 0
-          max: 7
+        - id: q_exercise_frequency
+          kind: Question
+          title: "On how many days a week do you exercise?"
+          codeBlock: |
+            if q_exercise_frequency.outcome < 3:
+                risk_score += 10
+          input:
+            control: Editbox
+            min: 0
+            max: 7
 
-      - id: q_risk_result
-        kind: Comment
-        title: "Risk Assessment Complete"
-        precondition:
-          - predicate: risk_score > 0
-        codeBlock: |
-          if risk_score >= 30:
-              risk_category = "high"
-          elif risk_score >= 15:
-              risk_category = "medium"
-          else:
-              risk_category = "low"
+        - id: q_high_risk_notice
+          kind: Comment
+          title: "Your answers suggest an elevated risk. The next questions go into more detail."
+          precondition:
+            - predicate: risk_score >= 30
 ```
-
-**Do NOT use `list.append()` or other method calls** — they execute at runtime but are invisible to the Z3 solver, creating unverifiable dead spots in your questionnaire logic.
 
 ### 8. Common Pitfalls to Avoid
 
@@ -1123,51 +1196,9 @@ blocks:
           - predicate: q_income.outcome > 20000
 ```
 
-#### Avoid Missing Value Definitions
-```yaml
-# BAD: Editbox without min/max
-input:
-  control: Editbox
-  # Missing min and max!
-
-# BAD: Radio without labels
-input:
-  control: Radio
-  # Missing labels!
-```
-
-#### Always Define Valid Values
-```yaml
-# GOOD: Editbox with range
-input:
-  control: Editbox
-  min: 0
-  max: 100
-
-# GOOD: Radio with labels
-input:
-  control: Radio
-  labels:
-    1: "Option A"
-    2: "Option B"
-    3: "Option C"
-```
-
-#### Avoid Unclear Postcondition Messages
-```yaml
-# BAD: Generic error message
-postcondition:
-  - predicate: value > 0
-    hint: "Invalid input"
-```
-
-#### Provide Helpful Validation Messages
-```yaml
-# GOOD: Specific guidance
-postcondition:
-  - predicate: q_children.outcome <= q_household_size.outcome
-    hint: "Number of children cannot exceed total household size"
-```
+#### Missing Value Definitions
+An Editbox, Slider or Range without `min`/`max`, or a Radio, Dropdown or Checkbox
+without `labels`, does not load (§4).
 
 ### 9. Advanced Techniques
 
@@ -1189,10 +1220,8 @@ While QML doesn't support dynamic text interpolation directly, you can use Comme
   codeBlock: |
     if q_initial_path.outcome == 1:
         survey_path = "detailed"
-        questions_to_show = 20
     else:
         survey_path = "quick"
-        questions_to_show = 5
   input:
     control: Radio
     labels:
@@ -1208,11 +1237,21 @@ While QML doesn't support dynamic text interpolation directly, you can use Comme
 ```
 
 #### 9.3 Aggregating QuestionGroup Responses
-A **QuestionGroup** carries a single scalar Z3 var — its per-question outcomes
-(`q_service_ratings.outcome[i]`) have **no per-question model** in the solver, so
-any aggregation over them (whether `sum([...])` or explicit `outcome[0] +
-outcome[1] + ...`) is **runtime-only**, not statically verified. Compute the
-total explicitly and rely on runtime enforcement:
+Z3 holds one variable per **QuestionGroup** answer, so a precondition or
+postcondition that reads `qg.outcome[i]` (literal `i`, or a comprehension
+variable: `sum(qg.outcome[i] for i in range(3)) >= 9`) is verified. The
+proof accounts for the two ways an answer is `None`: the whole group is `None`
+until answered (gated out, or shown and left blank), so every `qg.outcome[i]`
+read fails a precondition then; and an answered group leaves unanswered slots
+`None`, so `qg.outcome[0] != 1` holds for an empty slot while
+`qg.outcome[0] > 1` fails. Guard with `qg.outcome is not None and …` to test
+the group first.
+
+Not verified, reported as `skipped_condition`: the whole list read as a value
+(`qg.outcome == 1`), a set of answers (`len(set([...]))`), a group inside a
+Roster or capped Group, and any codeBlock write to a group. A codeBlock that
+reads the answers runs at runtime, but the variable it computes is not proven
+(an empty slot makes the sum raise and leaves it as it was):
 ```yaml
 - id: q_service_ratings
   kind: QuestionGroup
@@ -1222,8 +1261,8 @@ total explicitly and rely on runtime enforcement:
     - "Quality"
     - "Support"
   codeBlock: |
-    # Runtime-only: the per-question outcomes are not modelled in Z3, so the
-    # solver treats total_rating as unconstrained (a coverage gap, not a proof).
+    # Runtime-only: a codeBlock read of the answers is not modelled in Z3, so
+    # the solver treats total_rating as unconstrained (not a proof).
     total_rating = q_service_ratings.outcome[0] + q_service_ratings.outcome[1] + q_service_ratings.outcome[2]
 
     # Categorize based on total (3 questions, scale 1-5, so range 3-15)
@@ -1243,12 +1282,11 @@ total explicitly and rely on runtime enforcement:
       5: "Excellent"
 ```
 
-**QuestionGroup vs Matrix.** This runtime-only limitation is specific to
-QuestionGroup vector outcomes. A **`MatrixQuestion`** DOES model each cell
-(`m.outcome[j][k]`), so the canonical folded shapes over its cells — `sum([...])
-== K`, `len(set([...])) == N`, `all([...])` with literal range bounds — **are
-Z3-verified** (see `matrix-constraint-patterns.md`). If you need a statically
-verified aggregate, model the items as a matrix, not a QuestionGroup.
+**QuestionGroup vs Matrix.** A **`MatrixQuestion`** models each cell
+(`m.outcome[j][k]`) too, and its folded shapes — `sum([...]) == K`,
+`all([...])` / `any([...])` with literal range bounds — are lowered to Z3 the
+same way (see `matrix-constraint-patterns.md`). To verify an aggregate,
+write it in the condition itself, not in a codeBlock.
 
 ### 10. Testing and Validation Guidelines
 
@@ -1258,7 +1296,7 @@ When creating QML questionnaires, ensure:
 2. **Postconditions are satisfiable**: Verify that validation rules don't create impossible situations
 3. **Variables are initialized**: Ensure all variables used in conditions are defined in codeInit or prior code blocks
 4. **Value definitions are correct**: Check that min/max make sense for range controls, and label keys are valid integers for selection controls
-5. **Variable producers before consumers**: Items that set a variable (via response or codeBlock) must appear before items whose preconditions or postconditions reference that variable. Blocks are displayed in their defined order, but items within a block are ordered by dependency topology — items at the same dependency level have no guaranteed order, so every conditional item must carry its own complete precondition (no inheritance)
+5. **Variable producers before consumers**: Items that set a variable (via response or codeBlock) must appear before items whose preconditions or postconditions reference that variable. Blocks are displayed in their defined order, but items within a block are ordered by dependency topology — items at the same dependency level have no guaranteed order, so a conditional item never inherits a sibling item's precondition: it is gated by its own complete condition, from the block guard it sits under, its own precondition, or both
 6. **Labels are complete**: All referenced label keys must be defined in the labels map
 
 ### Example: Complete Demographic Questionnaire
@@ -1393,6 +1431,6 @@ When creating QML questionnaires, think declaratively:
 3. **Use preconditions** - Define when a question applies, not how to navigate to it
 4. **Use postconditions for consistency, routing for eligibility** - A postcondition relates answers; one that admits a single answer ends the interview and hides the answer you wanted to count
 5. **Choose the right control** - Match the UI to the data type (see Section 4.9)
-6. **Keep code blocks Z3-verifiable** - Only use the supported Python subset (no `sum`, `len`, `append`, etc.)
+6. **Keep code blocks Z3-verifiable** - Only use the supported Python subset of §6.4 (no loops, `len`, `min`/`max` or method calls)
 7. **Gate sections at the block** - A later block that depends on an earlier answer carries one block-level precondition; item-level gates stay beside the item they depend on
 8. **Provide helpful hints** - Make postcondition messages user-friendly

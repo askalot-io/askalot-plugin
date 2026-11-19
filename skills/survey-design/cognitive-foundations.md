@@ -133,9 +133,11 @@ After saying they support environmental protection, they are more
 likely to support specific environmental policies in later questions.
 
 **Mitigation:** When measuring attitudes on related topics, consider
-whether earlier answers are contaminating later ones. Block
-randomization (varying block order across respondents) can help
-distinguish true attitudes from consistency effects.
+whether earlier answers are contaminating later ones. Varying block order across respondents
+separates true attitudes from consistency effects in a methods
+experiment, but QML has no order randomization (blocks follow file
+order), so in a QML questionnaire control carryover by placement:
+general before specific, buffer items between related topics.
 
 ## Cognitive Load and Question Difficulty
 
@@ -184,5 +186,5 @@ These cognitive foundations directly inform large-survey design:
    module responses.
 
 5. **Format variety counters habituation**: Varying question types
-   (Switch, Radio, Slider, Number) across modules forces respondents
+   (Switch, Radio, Slider, Editbox) across modules forces respondents
    to re-engage with each question rather than falling into patterns.

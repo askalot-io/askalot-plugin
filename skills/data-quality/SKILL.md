@@ -9,6 +9,12 @@ Reference material for evaluating survey data quality. Covers response quality i
 sample representativeness metrics, and interpretation thresholds grounded in established
 survey methodology (AAPOR, Krosnick, ESOMAR).
 
+Two companion files hold the detail: `response-metrics.md` (the response quality
+metrics Askalot computes, with formulas) and `weighting.md` (design effect, weight
+diagnostics, trimming). Where a section below describes a check Askalot does not
+compute, it says what the platform reports instead; apply the rest by hand only when
+you hold the raw responses or timings.
+
 ## Response Quality Indicators
 
 ### Straightlining Detection
@@ -22,6 +28,10 @@ or grid question, indicating inattentive or satisficing behavior (Krosnick, 1991
   matrix block. SD = 0 across ≥ 3 items = probable straightliner
 - **Cross-question consistency**: Reverse-coded items should show inverse pattern. Same
   direction on both regular and reverse items = acquiescence or straightlining
+
+Askalot's straightlining score uses one rule only: the share of respondents who gave
+the identical answer to every item of a set (see `response-metrics.md`). LIS and
+within-scale SD are not computed.
 
 **Prevalence thresholds:**
 - < 5% of respondents flagged: Normal, no action needed
@@ -42,9 +52,9 @@ of reduced response quality and engagement.
 - > 1000 ms per word = Deliberate, careful reading
 
 **Education-stratified effects** (speeding varies significantly by education):
-- **Less than high school**: Baseline speeding threshold 250 ms/word (process language more slowly)
+- **Less than high school**: Baseline speeding threshold 400 ms/word (process language more slowly)
 - **High school**: Baseline 300 ms/word
-- **College+**: Baseline 400 ms/word (faster readers)
+- **College+**: Baseline 250 ms/word (faster readers)
 
 Failure to adjust thresholds by education level will over-flag educated respondents and miss problems with less-educated respondents.
 
@@ -58,6 +68,11 @@ Failure to adjust thresholds by education level will over-flag educated responde
 - Completion time < 1/2 of median = review for quality issues
 - Always calculate thresholds from the distribution itself, not external standards
 - Use iterative trimming: calculate median excluding obvious speeders, then re-identify speeders
+
+Askalot reports speeders by the first rule alone: a respondent whose summed answering
+time is below 1/3 of the cohort's median, the cohort being the surveys with usable
+timing. Per-word and per-page timings are not computed, and with fewer than three
+timed surveys the speeder figures are absent, not zero.
 
 **Speeding-Straightlining correlation** (Zhang & Conrad 2014):
 - Strong positive correlation exists: speeders are 2-3x more likely to straightline
@@ -84,7 +99,7 @@ or respondent fatigue.
 **Thresholds:**
 - < 5% skip rate per question: Normal
 - 5-10% skip rate: Monitor — may be sensitive or confusing
-- > 10% skip rate: Investigate wording, placement, or sensitivity
+- 10-20% skip rate: Investigate wording, placement, or sensitivity
 - > 20% skip rate: Redesign the question or make it optional explicitly
 
 **Patterns to watch:**
@@ -97,7 +112,8 @@ Systematic tendency to agree with statements regardless of content, especially p
 in agree/disagree Likert scales.
 
 **Detection:**
-- > 70% agreement rate across all Likert items = potential acquiescence
+- Agreement rate across all agree/disagree items (the acquiescence bias index):
+  0.4-0.6 normal, > 0.6 moderate acquiescence, > 0.75 strong
 - Check both positively and negatively worded items — true acquiescers agree with both
 - Compare agreement rates between educational/literacy subgroups
 
@@ -141,6 +157,11 @@ Average per-category deviation. More robust to outlier categories than RMSE.
 Tests whether observed deviations from targets are statistically significant versus
 random sampling noise.
 
+Askalot reports the statistic, Σ(observed − expected)² / expected over a factor's
+target categories, not a p-value. Read it against the critical value for
+df = categories − 1 at α = 0.05 (3.84 for df 1, 5.99 for 2, 7.81 for 3, 9.49 for 4,
+11.07 for 5): above it, p ≤ 0.05.
+
 **Interpretation:**
 - p > 0.05: Deviations consistent with random sampling — no systematic bias detected
 - p ≤ 0.05: Statistically significant deviation — systematic sampling issue likely
@@ -167,7 +188,12 @@ The worst single-category gap between actual and target proportions.
 ## Quality Score Interpretation
 
 ### Composite Score (0-1)
-The overall quality score combines RMSE across all factors with factor-specific weights.
+The overall quality score starts from the composite error: the factor-weighted mean
+of the per-factor error over the factors that could be measured (RMSE by default; MAE
+or max deviation when that metric is selected). It is mapped to 0-1 as
+score = 1 / (1 + 5 × error), so 0.8 is an error of 0.05, 0.6 an error of 0.13 and
+0.4 an error of 0.30. The mapping is a reciprocal: compare two samples by their
+composite error, not by a difference or percentage change in score.
 
 **Thresholds:**
 - > 0.8: Good quality — sample adequately represents target population
@@ -249,7 +275,7 @@ Respondents shift from "optimizing" (careful, thoughtful responses) to "satisfic
 1. **Non-differentiation pattern**: Same response across all items in matrix (straightlining)
 2. **Primacy bias**: Systematic selection of first options (especially on long lists)
 3. **Recency bias**: Systematic selection of last options
-4. **Acquiescence**: Agreeing with all statements in agree/disagree scale (> 85% agreement rate)
+4. **Acquiescence**: Agreeing with statements regardless of content in agree/disagree scales (see *Acquiescence Bias* for the index bands)
 5. **Moderate response bias**: Always selecting middle option on 5+ point scales
 6. **Speeding** (above thresholds): Completion time too fast for content amount
 7. **Item nonresponse variance**: Skips items inconsistently rather than at logical boundaries
@@ -307,7 +333,7 @@ Acquiescence bias — systematic tendency to agree with statements — is a form
 - True acquiescers show > 80% agreement with BOTH positive AND negative statements on same topic
 
 **Measurement approach - agree/disagree vs. forced choice**:
-- Agree/disagree scales: 10-15% higher agreement rates than forced choice (agree/disagree) on same items
+- Agree/disagree scales: 10-15% higher agreement rates than forced choice on same items
 - Forced-choice scales show less acquiescence: respondents must choose between two options
 - Meta-analysis: ~50% reduction in acquiescence bias when switching from agree/disagree to forced choice format
 
@@ -330,11 +356,8 @@ Item-level missing data patterns reveal respondent engagement and construct clar
 - Sensitive topic block missing more: understandable if topic very sensitive
 - Late-survey block missing more: fatigue effect
 
-**Threshold interpretation**:
-- < 1% missing per item: Minimal concern
-- 1-5% per item: Normal, acceptable
-- 5-10% per item: Investigate (sensitive? unclear?)
-- > 10% per item: Serious concern (redesign or exclude item)
+**Threshold interpretation**: the per-item bands under *Item Nonresponse* above
+(5%, 10%, 20%) apply to each pattern.
 
 ### Open-Ended Response Quality Metrics
 
@@ -345,7 +368,8 @@ For surveys with open-ended questions, assess informativeness using Gricean maxi
 1. **Quantity maxim** (appropriate amount of information):
    - Too brief (< 5 words): Likely satisficing or insufficient effort
    - Adequate (5-20 words): Normal response
-   - Very detailed (> 50 words): Over-explanation or elaboration
+   - Detailed (20-50 words): Shows engagement
+   - Over-elaborate (> 50 words): Over-explanation, or off-topic rambling
 
 2. **Quality maxim** (truthfulness and accuracy):
    - Self-contradictions within response: quality concern

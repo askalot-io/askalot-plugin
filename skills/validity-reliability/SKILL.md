@@ -7,8 +7,18 @@ description: Use when designing items for later psychometric validation, evaluat
 
 Practitioner-level guide for Designers (building items that *can* be
 validated) and Analysts (evaluating whether a scale *is* valid and
-reliable). If a question goes deeper, reach for `methodology-library`
-and search Taherdoost or Aithal directly.
+reliable). If a question goes deeper, search the methodology library
+(`search_methodology_library`; the `methodology-library` skill
+describes the tools) for Taherdoost or Aithal directly. The citation
+keys below (`taherdoost2016validity`, `aithal2020development`) are the
+library's paper keys.
+
+What the platform computes itself is narrow: Cronbach's α per battery
+(the sub-items of one QuestionGroup or MatrixQuestion, three or more),
+on the stored answer codes, plus straightlining, speeders and item
+nonresponse. CVR, factor analysis, McDonald's ω, test-retest and κ
+are not computed; they need the exported data and the researcher's
+own analysis. Recommend them, do not report them as available.
 
 ---
 
@@ -90,14 +100,15 @@ want to make.
 
 ### Cronbach's α — the most cited, most abused
 
-**Thresholds by construct maturity** (aithal2020development, p.~7–8):
+**Thresholds** (aithal2020development, p.~7–8;
+taherdoost2016validity for the exploratory floor):
 
 - $\alpha \leq 0$ — serious flaw; check reverse-coding
 - $0 < \alpha < 0.5$ — discard or heavily revise
-- $0.5 \leq \alpha < 0.7$ — moderate; revise items
-- $\alpha \geq 0.7$ — adequate baseline (confirmatory)
-- $\alpha \geq 0.6$ — acceptable for exploratory/pilot
-- $0.7 \leq \alpha < 0.9$ — good (the sweet spot)
+- $0.5 \leq \alpha < 0.7$ — moderate; revise items. From 0.6 it is
+  acceptable for an exploratory or pilot study
+- $0.7 \leq \alpha < 0.9$ — good; 0.7 is the minimum for confirmatory
+  use
 - $\alpha \geq 0.9$ — may indicate redundancy; inspect inter-item
   correlations and consider removing duplicates
 
@@ -172,7 +183,8 @@ binary yes/no for affect-laden constructs
   instructional manipulation checks ("choose option 3 for this item"
   — sparingly, not overused).
 - Flag straightliners via response variance on matrix questions
-  (see `data-quality` skill for the metric).
+  (the platform reports a straightlining score per battery; the
+  `data-quality` skill describes it).
 
 **Item-level threats.**
 - **Avoid double-barreled**: "Have you experienced nausea *and*
@@ -181,8 +193,9 @@ binary yes/no for affect-laden constructs
   reading comprehension, not attitude).
 - **Precise quantifiers**: "in the last 24 hours" > "usually";
   "at least 3 times per week" > "often".
-- **5+ response anchors** with verbal labels and equal spacing. Too
-  few kills variance; too many (> 9) adds noise without signal
+- **Enough response anchors** (the source asks for 5+; `survey-design`
+  allows 4 on a unipolar scale) with verbal labels and equal spacing.
+  Too few kills variance; too many (> 9) adds noise without signal
   (aithal2020development, p.~5).
 
 **Questionnaire length.** Fatigue cascades into straightlining and
@@ -229,26 +242,33 @@ Four places where α misleads:
 
 ## 6. QML design patterns that support later validation
 
-When the Designer is writing a questionnaire, bake these in — they
-pay off when the Analyst runs the validation report:
+Check for these when reviewing a questionnaire, and build them in when
+writing one. They decide whether the collected data can support a
+reliability or validity claim:
 
 1. **Reverse-coded items.** For any multi-item Likert construct,
-   include ≥ 1 reverse-coded item. Document the reversal in item
-   metadata so the Analyst's pipeline can flip the score before
-   computing α (aithal2020development, p.~5).
-2. **Attention checks.** 1–2 embedded checks per ~30 items. Use
-   `questionnaire-logic` skill for skip patterns that hide them from
-   respondents who'd pattern-match.
-3. **Parallel forms** for sensitive or stable constructs. Two
+   include ≥ 1 reverse-coded item (aithal2020development, p.~5). QML
+   items have no metadata field and the platform's α is computed on the
+   stored codes without reverse-scoring, so a reverse-worded item
+   lowers the reported α. Name every reversed item in the review or the
+   paper, so that whoever reads α knows to recode first.
+2. **One battery per construct.** Put a construct's items in one
+   QuestionGroup or MatrixQuestion with three or more sub-items: that
+   is the unit the platform computes α and straightlining over.
+3. **Attention checks.** 1–2 embedded checks per ~30 items, and no
+   more than 2–3 in the whole survey (`survey-design`,
+   `response-quality.md`).
+4. **Parallel forms** for sensitive or stable constructs. Two
    equivalent Likert batteries, balanced across respondents — enables
    alternate-form reliability (aithal2020development, p.~9–10).
-4. **5–7 response anchors** with verbal labels. Don't collapse scales
+5. **4–7 response anchors** with verbal labels (4–5 unipolar, 5 or 7
+   bipolar; `survey-design`, `scale-design.md`). Don't collapse scales
    in code — the Analyst wants the raw ordinal data.
-5. **Short open-ended follow-up** for headline constructs (optional
+6. **Short open-ended follow-up** for headline constructs (optional
    one-sentence "anything else we missed?"). Lets the Analyst check
    discriminant validity qualitatively when closed-ended scales seem
    contradictory.
-6. **Pilot waves built into the QML plan.** Pre-pilot (n = 30–50)
+7. **Pilot waves in the fielding plan.** Pre-pilot (n = 30–50)
    before full pilot (n ≥ 100). Don't skip — pilot data catches the
    items the expert review missed.
 
@@ -259,7 +279,7 @@ pay off when the Analyst runs the validation report:
 | Customer asks… | Answer this way |
 |---|---|
 | "Is α = 0.68 good enough?" | For an exploratory / new-construct scale, yes; for confirmatory use, revise items. Also check unidimensionality via PCA before trusting α at all (aithal2020development, p.~7–8). |
-| "Why α = 0.93 on this scale is 'too high'?" | Likely item redundancy; inspect inter-item correlations, drop duplicates, target 0.75–0.85 (aithal2020development, p.~7–8). |
+| "Why α = 0.93 on this scale is 'too high'?" | Likely item redundancy; inspect inter-item correlations, drop duplicates, aim for the 0.7–0.9 band (aithal2020development, p.~7–8). |
 | "Can we skip the pilot?" | No — the pilot is where item-level psychometric problems show up. Skipping it means discovering them in the main study when fixing is expensive (aithal2020development, p.~6). |
 | "Why do we need reverse-coded items?" | They flag careless responders and guard against acquiescence bias, but only if the reverse items have psychometrics similar to forward items (aithal2020development, p.~5). |
 | "How many experts for content validity?" | 5–30, typically ~10. Compute Lawshe's CVR; retain items above the threshold for your panel size (taherdoost2016validity, p.~3–4). |

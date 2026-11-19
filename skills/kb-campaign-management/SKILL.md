@@ -1,7 +1,6 @@
 ---
 name: kb-campaign-management
 description: Pointer to the public campaign-management guide at docs.askalot.io/guide/campaign-management. Use when an agent or CLI user needs the end-user explainer for campaign creation, pool assignment, invitations, monitoring, and closure. Complements the campaign-strategy and mcp-campaign-tools skills with reader-facing flow context.
-disable-model-invocation: false
 ---
 
 # Campaign Management Guide
@@ -13,7 +12,8 @@ Use the live page when:
 
 - A customer or operator is following an end-to-end campaign lifecycle for
   the first time and wants the prose narrative
-- You need screenshots of the Targetor UI flow (not present in bundled skills)
+- You need its screenshots of the sampling-strategy and pool-quality pages
+  (not present in bundled skills)
 - You want to point a non-engineering stakeholder at "how a campaign goes
   live" without exposing the MCP tool surface
 

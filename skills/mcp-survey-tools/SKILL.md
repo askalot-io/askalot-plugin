@@ -17,25 +17,48 @@ description: Use when completing a survey as a simulated respondent (a preview o
 
 ### get_survey_current_item
 
-Get the current step to answer. Returns the question text, type, available options, and any constraints in a single folded response `{item, options, status}`.
+Input: `survey_id`. Returns the current step as one folded response:
 
-**When to use**: At the start of the survey and after each response submission to get the next question.
+- `status` -- `in_progress` or `completed`. `completed` means there is no further item.
+- `item` -- `{id, kind, text, extras}`. `id` is the `item_id` you submit against; `kind` is `Question`, `QuestionGroup` or `MatrixQuestion`; `extras.input` holds the control's configuration (`min`, `max`, `step`, `labels`).
+- `control_type` -- lowercase control name: `radio`, `dropdown`, `listbox`, `checkbox`, `slider`, `switch`, `editbox`, `range`, `textarea`.
+- `options` -- for a choice control `[{value, text}]`, where `value` is the answer code to submit; for a slider `[{type: "range", min, max, step}]`; for a switch `[{value: true, text: "Yes"}, {value: false, text: "No"}]`; empty for `editbox`, `range` and `textarea` (read the bounds from `item.extras.input`).
+- `required` -- whether the item must be answered.
+
+Comment items are skipped by the server, so every step returned is one to answer.
+
+**When to use**: Once, at the start of the survey. After that, `submit_survey_response` returns the next step itself; read again only when you no longer hold the current step (for example after a refused submission you cannot place).
 
 ### submit_survey_response
 
-Submit your answer to the current question. The response value depends on the question type.
+Input: `survey_id`, `item_id` (the current step's `item.id`) and `outcome`. Returns `{status, output, next}`: `next` is the following step in the same shape `get_survey_current_item` returns, and is null once `status` is `completed`.
+
+The shape of `outcome` follows the item's `kind` and `control_type`:
+
+| Control | `outcome` |
+|---|---|
+| `radio`, `dropdown`, `listbox` | The chosen option's `value` (an integer code) |
+| `checkbox` | One integer: the sum of the selected options' `value` codes (a bitmask), not a list |
+| `slider`, `editbox` | A number within the item's `min`..`max` |
+| `range` | A pair `[low, high]` within `min`..`max`, `low <= high` |
+| `switch` | `true` or `false` |
+| `textarea` | Free text (the only control answered with text) |
+
+A `QuestionGroup` takes a list with one such value per sub-question; a `MatrixQuestion` takes a nested list, rows x columns.
+
+A value the engine refuses comes back as a tool error carrying the reason, and the survey does not advance: correct the value and submit the same `item_id` again.
 
 **When to use**: After deciding on your answer for the current question.
 
 ### finish_survey
 
-Finalize the survey after all questions have been answered.
+Input: `survey_id`. Marks the survey completed and returns `status: "completed"`, or `"already_completed"` when the last submission had already closed it. Calling it twice is harmless.
 
-**When to use**: When `get_survey_current_item` indicates the survey is complete.
+**When to use**: Once, when a step reports `status: "completed"`.
 
 ## Response Workflow
 
-1. Call `get_survey_current_item` to see the current question (includes valid options in the response)
-2. Call `submit_survey_response` with your chosen answer
-3. Repeat until the survey reports completion
+1. Call `get_survey_current_item` once to see the first question and its options
+2. Call `submit_survey_response` with the step's `item.id` and your answer
+3. Answer the step returned in `next`; repeat until a response has `status: "completed"`
 4. Call `finish_survey` to finalize

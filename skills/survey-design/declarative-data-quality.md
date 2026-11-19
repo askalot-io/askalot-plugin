@@ -1,59 +1,63 @@
 # Declarative Data Quality: Inline Validation During Administration
 
-A paradigm shift from traditional post-hoc data cleaning to preventive inline
-validation during survey administration. Instead of detecting and cleaning data
-quality issues AFTER collection, use QML postconditions to enforce validation
-rules IN REAL TIME while the respondent is still engaged.
+Instead of detecting and cleaning data quality problems after collection, use
+QML postconditions to check answers while the respondent is still in the
+interview and can correct them.
 
-## Core Concept
+## Contents
 
-**Traditional approach (post-hoc):**
-Data collection → Data export → Data cleaning → Analysis
-- Quality issues detected AFTER respondent has left
-- Requires return contact to clarify/correct
-- Introduces data loss (invalid records discarded or imputed)
-- High remediation cost
+- When a postcondition is the right tool
+- Postcondition patterns: bounds that depend on another answer, consistency
+  across related items, interlocking ranges, temporal consistency, sum-to-total
+- Computed variables for complex validation
+- What postconditions replace and what they cannot
+- Anti-patterns: eligibility as a postcondition, over-validation, unhelpful
+  hints, validating opinions
 
-**Declarative approach (inline):**
-Data collection WITH inline validation → Clean data into analysis
-- Quality rules expressed as QML postconditions
-- Validation happens during questionnaire flow
-- Respondent corrects immediately while context is fresh
-- Prevents invalid data from being stored
-- Dramatically improves compliance and completeness
+## When a Postcondition Is the Right Tool
+
+A postcondition is checked when the respondent submits the answer; while a
+predicate is false the hint is shown and the respondent is asked to correct the
+answer. It replaces a cleaning step that would otherwise run after the
+respondent has left. Use it for:
+
+- relations between answers (children < household size, start year after birth
+  year, parts summing to a total);
+- bounds the control's `min`/`max` cannot express.
+
+Do not use it to restate the control's own `min`/`max` (the validator reports
+`duplicate_input_bound`), to screen respondents out (see Anti-Patterns), or to
+police opinions.
+
+A postcondition the engine cannot evaluate (it reads an item the respondent was
+never asked, or skipped) lets the answer through unchecked and marks the survey
+critical, which excludes it from datasets. Guard a reference to an item that may
+be unasked with `q_x.outcome is None or (...)`; the `qml-syntax` and
+`qml-preconditions` skills give the rule.
 
 ## Validation Categories and Postcondition Patterns
 
 ### 1. Range Checks and Logical Bounds
 
-**Problem**: Respondents enter impossible values (negative counts,
-unreasonable ages, values outside logical range).
+**Problem**: Respondents enter impossible or implausible values (negative
+counts, unreasonable ages, values outside the logical range).
 
-**Traditional post-hoc**: Flag invalid records, email respondent for
-correction (90% non-response to follow-up).
-
-**Declarative approach**: Postconditions prevent advancement until corrected.
+Fixed bounds belong on the control: an Editbox or Slider refuses an answer
+outside its `min`/`max`. Add a postcondition only for a bound the control
+cannot express, which is one that depends on another answer:
 
 ```yaml
-- id: q_age
+- id: q_years_at_address
   kind: Question
-  title: "What is your age?"
+  title: "How many years have you lived at your current address?"
   input:
     control: Editbox
     min: 0
     max: 120
   postcondition:
-    - predicate: q_age.outcome >= 18
-      hint: "You must be 18 or older to participate in this survey."
+    - predicate: q_years_at_address.outcome <= q_age.outcome
+      hint: "Years at this address cannot exceed your age."
 ```
-
-The `min`/`max` on the control constrains the input widget, while the
-postcondition enforces the study-specific eligibility rule. Both work
-together — the control prevents typing 200, the postcondition prevents
-minors from proceeding.
-
-**Benefit**: Prevents impossible values at entry. Response completion rate
-increases 15-25% when validation is immediate vs. post-hoc.
 
 ### 2. Consistency Checks Across Related Items
 
@@ -74,20 +78,16 @@ reports children's ages, or household count doesn't align with family details).
   title: "How many children under 18 do you have?"
   precondition:
     - predicate: q_has_children.outcome == 1
-  postcondition:
-    - predicate: q_child_count.outcome >= 1
-      hint: "You indicated you have children. Please enter at least 1."
-    - predicate: q_child_count.outcome <= 15
-      hint: "Please enter a realistic number of children."
   input:
     control: Editbox
     min: 1
     max: 20
 ```
 
-When respondent answers "No" to `q_has_children`, `q_child_count` is skipped
-entirely (precondition). If they answer "Yes," postconditions enforce that
-the count is at least 1. Impossible combinations are structurally prevented.
+When the respondent answers "No" to `q_has_children`, `q_child_count` is
+skipped entirely (precondition). If they answer "Yes", the control's `min: 1`
+enforces a count of at least 1. The impossible combinations are prevented by
+routing and the control's domain, with no postcondition.
 
 ### 3. Interlocking Ranges
 
@@ -108,18 +108,13 @@ contributors vs. household size).
   kind: Question
   title: "How many household members contribute to income?"
   postcondition:
-    - predicate: q_income_contributors.outcome >= 1
-      hint: "At least one person must contribute to household income."
     - predicate: q_income_contributors.outcome <= q_household_size.outcome
       hint: "Income contributors cannot exceed total household size."
   input:
     control: Editbox
-    min: 0
+    min: 1
     max: 15
 ```
-
-**Benefit**: Prevents logically impossible combinations. Respondent sees
-the hint immediately and corrects on the same screen.
 
 ### 4. Temporal and Sequential Consistency
 
@@ -142,8 +137,6 @@ allows).
   postcondition:
     - predicate: q_work_start_year.outcome >= q_birth_year.outcome + 14
       hint: "Your first job must be at least 14 years after your birth year."
-    - predicate: q_work_start_year.outcome <= 2026
-      hint: "Start year cannot be in the future."
   input:
     control: Editbox
     min: 1940
@@ -161,70 +154,10 @@ allows).
     max: 60
 ```
 
-**Benefit**: Catches temporal impossibilities before storage. Critical for
-employment, education, and health surveys where date accuracy matters.
+The "not in the future" bound is the control's `max: 2026`; it is not repeated
+as a postcondition.
 
-### 5. Cross-Item Pattern Consistency
-
-**Problem**: Respondent's answer pattern shows contradictions (claims "very
-dissatisfied" overall but rates every individual dimension as "very
-satisfied").
-
-```yaml
-- id: q_overall_satisfaction
-  kind: Question
-  title: "Overall, how satisfied are you with your job?"
-  input:
-    control: Radio
-    labels:
-      1: "Very dissatisfied"
-      2: "Dissatisfied"
-      3: "Neutral"
-      4: "Satisfied"
-      5: "Very satisfied"
-
-- id: q_pay_satisfaction
-  kind: Question
-  title: "How satisfied are you with your pay?"
-  input:
-    control: Radio
-    labels:
-      1: "Very dissatisfied"
-      2: "Dissatisfied"
-      3: "Neutral"
-      4: "Satisfied"
-      5: "Very satisfied"
-
-- id: q_benefits_satisfaction
-  kind: Question
-  title: "How satisfied are you with your benefits?"
-  input:
-    control: Radio
-    labels:
-      1: "Very dissatisfied"
-      2: "Dissatisfied"
-      3: "Neutral"
-      4: "Satisfied"
-      5: "Very satisfied"
-  codeBlock: |
-    avg_specific = (q_pay_satisfaction.outcome + q_benefits_satisfaction.outcome) // 2
-    satisfaction_gap = q_overall_satisfaction.outcome - avg_specific
-    if satisfaction_gap > 2 or satisfaction_gap < -2:
-      satisfaction_inconsistent = 1
-    else:
-      satisfaction_inconsistent = 0
-  postcondition:
-    - predicate: q_overall_satisfaction.outcome - (q_pay_satisfaction.outcome + q_benefits_satisfaction.outcome) // 2 <= 2
-      hint: "Your overall satisfaction differs significantly from your specific ratings. Please review."
-    - predicate: (q_pay_satisfaction.outcome + q_benefits_satisfaction.outcome) // 2 - q_overall_satisfaction.outcome <= 2
-      hint: "Your overall satisfaction differs significantly from your specific ratings. Please review."
-```
-
-Note: Since QML code blocks use integer arithmetic only, we compute the
-average via `// 2` (floor division). The postconditions check that overall
-satisfaction doesn't deviate from the computed average by more than 2 points.
-
-### 6. Percentage and Proportion Validation
+### 5. Percentage and Proportion Validation
 
 **Problem**: Respondent allocates percentages that don't sum to 100, or
 proportions that exceed a total.
@@ -264,14 +197,15 @@ after entering the final value and can adjust any of the three items.
 
 ## Computed Variables for Complex Validation
 
-When validation logic becomes complex (3+ conditions, derived scores),
-use `codeBlock` items to compute intermediate variables, then reference
-those variables in postconditions on subsequent items.
+When validation or routing logic becomes complex (3+ conditions, derived
+scores), compute an intermediate variable in a `codeBlock`, then reference the
+variable in the preconditions or postconditions of later items. Code blocks use
+whole-number arithmetic only (`//`, never `/`).
 
 ```yaml
 - id: calc_risk_score
   kind: Comment
-  title: "Calculating risk assessment..."
+  title: "Thank you. A few more questions about your health follow."
   codeBlock: |
     risk_score = 0
     if q_smoking.outcome == 1:
@@ -293,9 +227,9 @@ those variables in postconditions on subsequent items.
     off: "No"
 ```
 
-This pattern keeps postconditions simple while enabling sophisticated
-validation logic. The Comment item with a codeBlock is invisible to the
-respondent but computes the variable that gates subsequent items.
+This keeps each predicate simple. A Comment's title is shown to the
+respondent, so word it for them; where no text is wanted, attach the
+`codeBlock` to the last question whose answer it reads instead.
 
 ## The Postcondition Advantage: During vs. After Collection
 
@@ -303,36 +237,32 @@ respondent but computes the variable that gates subsequent items.
 
 | Post-hoc cleaning step | QML postcondition equivalent |
 |------------------------|------------------------------|
-| Range check scripts | `postcondition: predicate: q_x.outcome >= 0` |
+| Range check scripts | The control's `min` / `max` (not a postcondition) |
 | Cross-variable consistency | `postcondition: predicate: q_a.outcome <= q_b.outcome` |
 | Sum-to-total validation | `postcondition: predicate: q_x.outcome + q_y.outcome == 100` |
 | Logical skip verification | Preconditions prevent invalid paths entirely |
 | Impossible combination flags | Postconditions on dependent items |
-| Missing data imputation | Postconditions require valid responses before advancing |
 
 ### What Postconditions Cannot Replace
 
 - **Outlier detection across respondents** — requires population-level analysis
 - **Social desirability correction** — a measurement error, not a data error
 - **Weighting adjustments** — requires comparing sample to target population
-- **Interviewer effects** — captured in paradata, not item responses
-
-## Benefits Summary
-
-### Immediate Benefits
-1. **Zero invalid data**: Impossible values never stored
-2. **Higher completion quality**: Respondents correct while engaged (70-85%
-   correction rate vs. < 10% return contact response)
-3. **Reduced backend effort**: No post-collection data cleaning pipelines
-4. **Faster time-to-analysis**: Data arrives clean
-
-### Long-Term Benefits
-1. **Better respondent experience**: Immediate feedback, not follow-up emails
-2. **Design flaw detection**: Which questions trigger most validation errors?
-   High-frequency triggers indicate confusing questions to redesign
-3. **Compliance tracking**: Monitor validation resolution rates as quality metric
+- **Interviewer effects** — not visible in one respondent's answers
+- **Item nonresponse** — a respondent can still leave an item unanswered
 
 ## Anti-Patterns to Avoid
+
+### Eligibility as a Postcondition
+
+**Bad**: `q_age.outcome >= 18` as a postcondition on the age question. A minor
+can never submit an answer: the interview is stuck, never completes, and the
+screened-out answer is not in the data, so the eligibility rate cannot be
+measured.
+
+**Good**: accept the answer, gate the substantive blocks on it with a
+block-level `precondition`, and close the screened-out path with a Comment (the
+Screen-Out Routing pattern in the `qml-syntax` skill).
 
 ### Over-Validation
 
@@ -398,15 +328,8 @@ overall while dissatisfied with specific aspects — that's a legitimate
 response pattern, not an error. Use consistency postconditions only for
 factual contradictions, not attitudinal ones.
 
-## Measurement Quality Under Declarative Validation
+## Cost
 
-Research findings on inline validation effectiveness:
-
-- **Completion quality**: 15-25% improvement in cross-item consistency scores
-- **Item nonresponse**: 5-10% reduction when postconditions provide clear hints
-- **Invalid records**: Near-zero vs. 3-8% in surveys without inline validation
-- **Respondent time**: Median completion increases 10-15% (more thoughtful
-  responses, fewer corrections needed)
-
-**Trade-off**: Slightly longer individual completion time, but dramatically
-faster overall pipeline (no re-contact, no post-hoc cleaning, no imputation).
+Each failed check costs the respondent a correction, and every hint interrupts
+the flow. Validate objective impossibilities only, and prefer routing and
+control bounds, which cost the respondent nothing.

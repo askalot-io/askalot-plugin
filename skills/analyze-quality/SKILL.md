@@ -30,11 +30,14 @@ Delegate via the **Agent** tool, by these exact names:
   sources its verdict from the shared answerability chain (the post-collection
   case of the same relationship), not an independent parallel computation.
 
-Both are generic, stateless leaf agents seeded from this skill's persona
-reference assets: each does its one assessment and returns. They do not dispatch
-further sub-agents. Sub-agents run in an **isolated context and do NOT see your
-task prompt** — so any pre-computed metrics or brief content they need must be
-forwarded **verbatim in the delegation message**.
+Both are stateless leaf agents: each does its one assessment and returns, and
+neither dispatches further sub-agents. A sub-agent runs in an isolated context
+and does not see your task prompt, and neither holds a tool that reads the
+paper, the questionnaire or the Bundle: each has only the project-document and
+methodology search tools, and `research-evaluator` also has
+`answerability_chain`. So the pre-computed metrics, the paper content and the
+ids they need reach them only if you forward them verbatim in the delegation
+message.
 
 ## Conversation persistence (mandatory when a project context exists)
 
@@ -43,7 +46,19 @@ the customer can see the audit-ready timeline of your work. **If no project
 context is available** — for example a batch quality analysis invoked with no
 project UUID — skip the three persistence calls below: there is no
 `project_conversations` row to write and no customer-facing chat timeline.
-Otherwise, wrap each turn in three MCP calls:
+
+**A hosted run.** When your first user turn carries a
+"Conversation persistence (hosted run)" block, the host already opened this
+turn's run and closes it when the turn ends, with what the turn cost: do not
+call `start_run` or `end_run`.
+Append every meaningful step — each MCP tool call (with its result), each
+`Agent(...)` sub-agent invocation, each user-facing reply — with
+`mcp__plugin_askalot_askalot__append_conversation_event`, passing the
+`project_id`, `agent_kind` and `run_id` the block names, with a monotonically
+incrementing `event_seq` (starts at 0).
+
+**No host** (the plugin in your own Claude Code session): wrap the turn in
+three MCP calls yourself:
 
 1. **At the start of your turn**, before any other tool calls, call
    `mcp__plugin_askalot_askalot__start_run` with `agent_kind="analyst"`,
@@ -56,11 +71,14 @@ Otherwise, wrap each turn in three MCP calls:
    with the same `run_id`. The run row transitions to `closed`.
 
 If `append_conversation_event` returns `success: false` with a transient
-error code (NOT `invalid_event_kind`, `validation_error`,
-`run_not_running`, or `run_event_limit_exceeded`),
-retry with the **same** `event_seq` — never increment on retry. The server
+error (`internal_error`, or the call itself failing in transit), retry with
+the **same** `event_seq` — never increment on retry. Do not retry
+`invalid_event_kind`, `validation_error`, `invalid_agent_kind`, `not_found`,
+`forbidden`, `run_not_running` or `run_event_limit_exceeded`: the same call
+will fail the same way. The server
 deduplicates on `(run_id, event_seq)`; incrementing on retry produces
-permanent gaps in the timeline.
+permanent gaps in the timeline. On `run_not_running` the run has ended: stop
+appending and open no other run in this turn.
 
 See the `conversation-persistence` skill for the full event-shape reference
 and the dedup semantics. Do not skip these calls — the timeline is the
@@ -68,18 +86,18 @@ customer's only insight into your decision process.
 
 ## Answerability chain (mandatory)
 
-When you write `data_quality_assessment`, consult the
-`answerability-chain` skill and call
-`mcp__plugin_askalot_askalot__answerability_chain` within the same turn,
-before continuing to your synthesized verdict.
+When a research paper is present, call
+`mcp__plugin_askalot_askalot__answerability_chain` yourself, in the same turn,
+before you write your synthesized verdict and the `data_quality_assessment`
+proposal; the `answerability-chain` skill says how to build its inputs. Do not
+rely on a sub-agent's call: its result reaches you only as prose.
 The terminal research-answerability pass you delegate to
 `research-evaluator` is the *post-collection* case of this same chain —
-not a separate judgment. A quality finding that invalidates a goal's
-chain (e.g. a representativeness failure) is a `quality`-link break that
-must stay visible until a later sampling/collection revision addresses
-it. Call the tool **yourself, within the turn** — do not rely on a
-sub-agent's call bubbling up. The chain is read-only and never
-auto-remediates. See the `answerability-chain` skill.
+not a separate judgment. A quality finding that invalidates a goal
+(e.g. a representativeness failure on the segment the goal is about) goes in
+`campaign_context.quality_invalidated_goals`; the chain then reports a
+`quality`-link break for that goal, which you state in your verdict. The chain
+is read-only and never remediates anything.
 
 ## RAG Grounding (mandatory)
 
@@ -95,7 +113,7 @@ QML, an assessment, an evaluation).
 
 2. **Methodology library** — peer-reviewed survey-research literature
    covering the full lifecycle (design, sampling, fielding, analysis,
-   weighting): Dillman, Krosnick, Groves, Tourangeau, Bethlehem, Heeringa
+   weighting): Dillman, Krosnick, Tourangeau, Bethlehem, Heeringa
    et al.:
    - `mcp__plugin_askalot_askalot__list_methodology_papers` — see what's in the library
    - `mcp__plugin_askalot_askalot__search_methodology_library` — semantic search across papers
@@ -120,18 +138,24 @@ QML, an assessment, an evaluation).
 ## Orchestration Strategy
 
 1. **Delegate to `quality-analyst`** — embed the full pre-computed metrics block
-   from your task prompt **verbatim** in the delegation message. Sub-agents run
-   in an isolated context and do NOT see your task prompt, so the metrics reach
-   the Quality Analyst only if you forward them in the delegation call. The
-   analyst returns a statistical quality assessment grounded in those injected
-   numbers.
+   from your task prompt verbatim in the delegation message. The analyst returns
+   a statistical quality assessment (representativeness, weighting, response
+   quality, recommendations, most severe first) grounded in those numbers.
 
 2. **Delegate to `research-evaluator` — only when a research paper is present**
-   in your task context. Pass the dataset alongside the research paper; the
-   evaluator returns a research goal assessment sourced from the shared
-   answerability chain (the post-collection case of the same relationship),
-   not an independent parallel computation. **When no research paper is
-   present, skip this delegation** and produce a data-quality-only report.
+   in your task context. Forward in the delegation message: the project id, the
+   paper content from your task prompt verbatim, the pre-computed metrics block,
+   the questionnaire's items as `{ref, prompt_text, kind, is_open_ended}`
+   (read them with `get_qml_content` first), and the Bundle's coded units:
+   `get_bundle_coding`'s `selected` as it returns it (`[]` when the Bundle codes
+   nothing; say there is no Bundle when there is none). The evaluator cannot
+   read any of these itself, the chain counts a goal as covered only by item
+   refs it was given, and without the selection it cannot see that an
+   open-ended goal no coded unit carries is not analyzable. It returns a per-goal assessment (`Answerable` / `Partial` / `Not`,
+   the broken link, the phase) sourced from the shared answerability chain (the
+   post-collection case of the same relationship), not an independent parallel
+   computation. When no research paper is present, skip this delegation and
+   produce a data-quality-only report.
 
 3. **Synthesize** — combine both assessments into a unified report:
    - Lead with the research goal assessment (what the customer cares about most)
@@ -145,7 +169,8 @@ QML, an assessment, an evaluation).
 
 **When your task prompt specifies an explicit output structure and required
 output blocks** (as the quality-analysis task does, with its fenced `paper_unit`
-chapter blocks and a mandatory fenced `brief_proposal` block), follow that
+chapter blocks, a `kpi_measures` block for the sized goals and a mandatory
+fenced `brief_proposal` block), follow that
 structure exactly — it governs the final output, and the default below applies
 to free-form evaluations only. Every required fenced block is emitted
 **verbatim**, with the `brief_proposal` block last; do not let a synthesis turn
@@ -190,45 +215,57 @@ For a free-form evaluation, present your unified report as:
 
 ## Recording outcomes in the paper
 
-`edit_paper_unit` is **denied to you**, and that is deliberate rather than
-pending: a run the researcher cancels must overwrite nothing, and the host
+`edit_paper_unit` and `edit_paper_translation` are **denied to you**, and that
+is deliberate rather than pending: a run the researcher cancels must overwrite
+nothing, and the host
 writing your output *after* the run terminates is what makes that guarantee
 structural rather than a promise. Do not attempt anchored `edit_paper_unit`
-calls — the tool is not reachable from this flow and the attempt only costs you
-a turn.
+or `edit_paper_translation` calls — neither tool is reachable from this flow
+and the attempt only costs you a turn.
 
 `read_paper` **is** available, and you should use it: the project's paper
 carries the goals, the instrument and the sampling plan your assessment is
 judged against. Reading cannot land a write a cancel would have to undo.
 
-Your two outcome paths are both fenced blocks in your response (see *Report
+Your outcomes are three kinds of fenced block in your response (see *Report
 Structure* and *Two-tier output*):
 
 - **`paper_unit` blocks** — the chapters your task prompt names. The host
   extracts them, checks them against the paper's HTML allowlist, and writes
   them into the research paper server-side. A fragment the allowlist refuses
   fails the run and names what it rejected, so emit well-formed markup.
-- **the `brief_proposal` block** — the one chapter that goes through the
-  researcher's review gate, landed by Balansor's `create_proposal` /
-  `approve_proposal` path.
+- **the `brief_proposal` block** — `data_quality_assessment`, the one chapter
+  that goes through the researcher's review gate. The host stores the block as
+  a pending proposal; the chapter is written only when the researcher approves
+  it, and not at all if they reject it.
+- **the `kpi_measures` block** — for each goal the saved sample-size plan
+  sized, which Silver column measures it and which answers count (JSON shape in
+  the task prompt). You name the measure and write no number: the host
+  computes each KPI's usable responses, observed share or spread and achieved
+  margin or power from it, and writes them as the results block of the newest
+  Study. A goal without a measure is stated as not measured. Never write the
+  results block yourself; a copy in your chapters is removed.
+
+When the paper already holds Studies of earlier waves of the Project, the
+Study you write adds an **Across waves** passage: one sentence per sized KPI
+on the tendency, the lesson learned or the hypothesis tested across the
+waves, with no number presented as computed by you.
 
 ## Two-tier output
 
 The **full artifact is the report you produce** (and, where the task requires
-it, the fenced blocks the downstream extractors parse — the `paper_unit`
-chapters the host writes into the research paper, and the `brief_proposal` the
-researcher reviews) plus the conversation timeline via the persistence calls
-above. Required fenced blocks are emitted verbatim, `brief_proposal` last. Lead the
+it, the fenced blocks described under *Recording outcomes in the paper*) plus
+the conversation timeline via the persistence calls above. Lead the
 customer-facing reply with a **compact verdict** — is the campaign complete,
 are the goals answerable, what's missing — rather than restating every metric;
 the detailed evidence lives in the report body. A synthesis that claims a
 verdict without the sub-agent assessments behind it is not a finished analysis.
 
-**The `brief_proposal` block is persisted by the SaaS pipeline, not the
-plugin.** The Balansor extractor that turns a fenced `brief_proposal` into a
-durable brief proposal runs only in the hosted Askalot runtime. When you are
-driven outside it (an external Claude Code / Claude Desktop session that has
-no Balansor extractor), still deliver the full verdict in prose, but **say
-plainly that the paper proposal was not persisted** — do not imply the paper
-was updated when nothing consumed the block. Never present an unpersisted
-proposal as a landed brief change.
+**The fenced blocks are persisted by the hosted pipeline, not the plugin.**
+The extraction that writes `paper_unit` chapters, computes the results block
+from `kpi_measures` and stores a `brief_proposal` as a proposal runs only in the
+hosted Askalot runtime, after the run ends. When you are driven outside it (the
+plugin in a Claude Code or Claude Desktop session), nothing consumes the
+blocks: still deliver the full verdict in prose, and say plainly that the paper
+was not updated and no proposal was stored. Never present an unpersisted block
+as a change to the paper.

@@ -1,21 +1,54 @@
 ---
 name: qml-preconditions
-description: Use when writing preconditions, postconditions, or conditional logic in QML questionnaires. Covers per-item precondition rules, progressive disclosure patterns, and validation constraints.
+description: Use when writing preconditions, postconditions, or conditional logic in QML questionnaires. Covers block guards vs item preconditions, progressive disclosure patterns, and validation constraints.
 ---
 
 # QML Preconditions and Conditional Logic Reference
 
 ## Scope
 
-**Covers**: Precondition syntax, postcondition validation, progressive disclosure patterns, per-item precondition rules, conditional flow design.
+**Covers**: Precondition syntax, postcondition validation, progressive disclosure patterns, block guards vs item preconditions, conditional flow design.
 
 **Does not cover**: QML item types, input controls, block structure (see qml-syntax skill), survey design methodology (see survey-design skill).
 
-## Critical Rule: Per-Item Preconditions Required
+## Critical Rule: Gates Never Cascade From a Sibling Item
 
-Blocks are displayed in their defined order, but items within a block are ordered by dependency topology -- items at the same dependency level can appear in any order. Preconditions do NOT cascade or inherit from earlier items. Every conditional item must carry its own complete precondition list.
+Blocks are displayed in their defined order, but items within a block are ordered by dependency topology -- items at the same dependency level can appear in any order. A precondition does NOT cascade from one item to the next: an item's gate covers that item only. Every conditional item must therefore be gated by its own complete condition -- either on the item, or by the block it sits in.
 
-**If 5 questions apply only to adults, ALL 5 must have their own `precondition:` -- not just the first one.**
+**If 5 questions apply only to adults, put them in one block whose block-level `precondition` is the adult gate (see "Hoisting Shared Gates") -- not the gate on the first question alone, and not 5 copies of it.** A block guard gates every item in its block; an item keeps its own precondition only for what is specific to it.
+
+```yaml
+# CORRECT: the shared adult gate sits on the block; q_income adds only its residual
+- id: b_adult_employment
+  precondition:
+    - predicate: q_age.outcome >= 18
+  items:
+    - id: q_employment
+      kind: Question
+      title: "What is your employment status?"
+      input:
+        control: Radio
+        labels:
+          1: "Employed"
+          2: "Unemployed"
+          3: "Student"
+
+    - id: q_income
+      kind: Question
+      title: "What is your annual income?"
+      precondition:
+        - predicate: q_employment.outcome == 1
+      input:
+        control: Editbox
+        min: 0
+        max: 1000000
+
+# WRONG: outside a gated block, relying on q_employment's precondition to cascade
+# - id: q_income
+#   precondition:
+#     - predicate: q_employment.outcome == 1
+#   # Missing: q_age.outcome >= 18
+```
 
 The same rule reaches across gates. An item that was not asked has an outcome of
 `None` at runtime. `None == 1` is false and `None != 1` is true, so an equality test
@@ -77,38 +110,6 @@ precondition:
     hint: "Unknown or not single"
 ```
 
-```yaml
-# CORRECT: Each item has its own precondition
-- id: q_employment
-  kind: Question
-  title: "What is your employment status?"
-  precondition:
-    - predicate: q_age.outcome >= 18
-  input:
-    control: Radio
-    labels:
-      1: "Employed"
-      2: "Unemployed"
-      3: "Student"
-
-- id: q_income
-  kind: Question
-  title: "What is your annual income?"
-  precondition:
-    - predicate: q_age.outcome >= 18
-    - predicate: q_employment.outcome == 1
-  input:
-    control: Editbox
-    min: 0
-    max: 1000000
-
-# WRONG: Relying on q_employment's precondition to cascade
-# - id: q_income
-#   precondition:
-#     - predicate: q_employment.outcome == 1
-#   # Missing: q_age.outcome >= 18
-```
-
 ## Precondition Syntax
 
 Preconditions and postconditions are **lists of predicates**, each with a `predicate` field and optional `hint`:
@@ -121,7 +122,9 @@ precondition:
     hint: "Requires consent"
 ```
 
-Multiple predicates in a list are ANDed -- all must be true for the item to show.
+Multiple predicates in a list are ANDed -- all must be true for the item to show. A
+precondition's `hint` is a note for authors (no respondent sees it); a postcondition's
+`hint` is the message the respondent gets when the answer is refused.
 
 ## Postcondition Syntax
 
@@ -131,9 +134,10 @@ Postconditions validate responses after they are collected:
 postcondition:
   - predicate: q_children.outcome <= q_household_size.outcome
     hint: "Number of children cannot exceed household size"
-  - predicate: q_children.outcome >= 0
-    hint: "Cannot be negative"
 ```
+
+Do not restate the control's own `min`/`max` as a postcondition (the validator reports
+`duplicate_input_bound`).
 
 A postcondition that cannot be evaluated fails the **other** way from a precondition:
 the answer is accepted unchecked, and the survey is recorded `critical`, which excludes
@@ -155,43 +159,48 @@ never evaluated by anything, and the validator reports it as
 
 ## Progressive Disclosure Pattern
 
-Use Switch/Radio as screening items, then gate follow-up items with preconditions:
+Use Switch/Radio as screening items, then gate the follow-ups. The follow-ups share one
+guard, so they form their own block carrying it:
 
 ```yaml
-- id: q_has_car
-  kind: Question
-  title: "Do you own a car?"
-  input:
-    control: Switch
-    on: "Yes"
-    off: "No"
+- id: b_car
+  items:
+    - id: q_has_car
+      kind: Question
+      title: "Do you own a car?"
+      input:
+        control: Switch
+        on: "Yes"
+        off: "No"
 
-- id: q_car_brand
-  kind: Question
-  title: "What is your car's brand?"
+- id: b_car_details
   precondition:
     - predicate: q_has_car.outcome == 1
-  input:
-    control: Dropdown
-    labels:
-      1: "Toyota"
-      2: "Honda"
-      3: "Ford"
+  items:
+    - id: q_car_brand
+      kind: Question
+      title: "What is your car's brand?"
+      input:
+        control: Dropdown
+        labels:
+          1: "Toyota"
+          2: "Honda"
+          3: "Ford"
 
-- id: q_car_satisfaction
-  kind: Question
-  title: "How satisfied are you with your car?"
-  precondition:
-    - predicate: q_has_car.outcome == 1
-  input:
-    control: Slider
-    min: 0
-    max: 10
+    - id: q_car_satisfaction
+      kind: Question
+      title: "How satisfied are you with your car?"
+      input:
+        control: Slider
+        min: 0
+        max: 10
 ```
 
 ## Variable-Based Preconditions
 
-Preconditions can reference variables set by codeBlocks:
+Preconditions can reference variables set by codeBlocks. The variable must hold a value
+on every path that reaches the reader (initialize it in `codeInit`), or the read raises
+and the item is skipped; see qml-syntax §6.1:
 
 ```yaml
 - id: q_risk_followup
@@ -222,9 +231,16 @@ hoist it to the block's `precondition`. A block-level precondition applies to ev
 in the block (it is AND-ed with each item's own precondition at evaluation time), so one
 gate covers them all and each item keeps only its **item-specific residual**.
 
-This does not conflict with the per-item rule above. That rule forbids relying on a
+This does not conflict with the critical rule above. That rule forbids relying on a
 *sibling item's* precondition to cascade -- it never does. Hoisting moves the shared gate
 *up a level* to the block, which legitimately gates every item the block contains.
+
+The block guard reads only outcomes and variables produced **before** the block. It is
+re-checked before every item, so a guard on a variable that a codeBlock inside the same
+block assigns changes mid-block, and once two items write it the publish gate reports a
+dependency cycle. A
+Roster block can carry a guard as well -- false skips the whole loop, true lets it iterate
+over `iterateOver` as usual.
 
 - **Shared by all items in a block** -> move the gate to the block `precondition`; items keep residuals only.
 - **Shared by some items** (gated and ungated interleaved) -> factor the gated items into their own Group block carrying the shared gate. QML blocks do not nest inside an item's `items:`, so a dedicated sibling Group block is the scoping mechanism.
@@ -374,19 +390,20 @@ a two-value control is a mandated answer, and a mandated answer makes the other 
 unmeasurable.
 
 ### Multi-Level Screening
+The outermost gate goes on the block; each inner item carries its residual in full,
+because a sibling's gate does not cascade (`kind`, `title` and `input` omitted):
 ```yaml
-- id: q_has_children
+- id: b_children
   precondition:
     - predicate: q_household_size.outcome > 1
-- id: q_children_count
-  precondition:
-    - predicate: q_household_size.outcome > 1
-    - predicate: q_has_children.outcome == 1
-- id: q_children_ages
-  precondition:
-    - predicate: q_household_size.outcome > 1
-    - predicate: q_has_children.outcome == 1
-    - predicate: q_children_count.outcome >= 1
+  items:
+    - id: q_has_children
+    - id: q_children_count
+      precondition:
+        - predicate: q_has_children.outcome == 1
+    - id: q_youngest_age
+      precondition:
+        - predicate: q_has_children.outcome == 1 and q_children_count.outcome >= 2
 ```
 
 ### Cross-Item Validation

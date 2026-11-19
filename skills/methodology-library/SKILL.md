@@ -1,6 +1,6 @@
 ---
 name: methodology-library
-description: Use when a survey-methodology question exceeds the agent's distilled skills, when the customer asks for a peer-reviewed citation, when comparing author positions, or when backing a recommendation with evidence. Covers the four Askalot MCP tools that read the shared methodology library (Dillman, Krosnick, Groves, Tourangeau, Bethlehem, Heeringa, Schouten, and others).
+description: Use when a survey-methodology question exceeds the agent's distilled skills, when the customer asks for a peer-reviewed citation, when comparing author positions, or when backing a recommendation with evidence. Covers the four Askalot MCP tools that read the shared methodology library (Dillman, Krosnick, Tourangeau, Bethlehem, Heeringa, Schouten, and others).
 ---
 
 # Methodology Library — Citation Discipline
@@ -30,24 +30,36 @@ distilled skills when they cover the question is the right default.
 
 ## The four tools, in the order you normally use them
 
-1. `list_methodology_papers()` — free reconnaissance. Returns
-   author, year, title, `paper_id`, and which agent consults
-   each paper. Call this first when you're unsure which papers even
-   exist for a topic; the tool does not hit LightRAG and is cheap.
-2. `search_methodology_library(query, top_k?, mode?)` — full corpus
-   semantic search. Use a 2–10 word conceptual phrase, not a single
-   keyword ("acquiescence bias mitigation" > "bias"). Default
-   `mode="mix"` blends vector + knowledge-graph retrieval and is
-   right for most queries. Switch to `mode="global"` for broad
-   "what-do-the-authors-say" questions, `mode="naive"` for
-   fast keyword-style lookup.
-3. `get_methodology_paper_summary(paper_id)` — 500-word orientation
-   for a single paper you've identified. Useful when
-   `search_methodology_library` surfaced a paper you haven't read
-   before and you want a map of what's in it.
-4. `get_methodology_chunk(paper_id, section_query)` — verbatim
-   passage within one paper. Use this when you've picked a paper
-   and want an exact quote for citation.
+1. `list_methodology_papers()` — the catalog: author, year, title,
+   `paper_id`, and which agent consults each paper. Call this first
+   when you're unsure which papers exist for a topic, and whenever you
+   need a `paper_id` or year for a citation; it reads a static list,
+   runs no retrieval, and is fast.
+2. `search_methodology_library(query, top_k=10, mode="mix")` — full
+   corpus semantic search. Use a 2–10 word conceptual phrase, not a
+   single keyword ("acquiescence bias mitigation" > "bias"). The
+   default `mode="mix"` blends vector + knowledge-graph retrieval and
+   is right for most queries. Switch to `mode="global"` for broad
+   "what-do-the-authors-say" questions, `mode="naive"` for a fast
+   vector-only lookup (`local` and `hybrid` are also accepted). The
+   answer is retrieved text, up to about 6,000 characters, and it may
+   arrive as one assembled block with no `paper_id` per passage; then
+   identify the paper from the author and title in the text and look
+   its `paper_id` up in the catalog.
+3. `get_methodology_paper_summary(paper_id)` — orientation for a
+   single paper: its citation line plus the top-ranked retrieved
+   passages (up to about 4,000 characters), not a written summary.
+   You write the summary from them. Useful when a search surfaced a
+   paper you don't know and you want a map of what's in it.
+4. `get_methodology_chunk(paper_id, section_query)` — the passage of
+   one paper that best matches `section_query`. Use this when you've
+   picked a paper and want an exact quote. When the answer opens with
+   a note that the passage "may span papers", it is not confined to
+   the paper you named: confirm from the text that the wording is that
+   paper's before quoting it under its `paper_id`.
+
+An unknown `paper_id` answers "Paper not found"; take ids from
+`list_methodology_papers`, never from memory.
 
 A common sequence:
 
@@ -70,6 +82,13 @@ Every time you quote or paraphrase the library in your reply:
 - Don't attribute a claim to a paper if the library didn't surface
   it. If `search_methodology_library` returned nothing relevant,
   say so — do not manufacture a citation from training memory.
+- An answer of "No passages found", "No passage matching …" or "No
+  content retrieved" for a core topic usually means the library is not
+  loaded on this tenant, not that the literature is silent. Tell the
+  user the claim is not backed by the library; a failed call (a tool
+  error) is the same case. The four tools need the AI-assistant
+  capability, so if they are absent from your tool list, say the
+  library is not available to this account.
 - When the library's answer contradicts your training memory, **defer
   to the library**. Your memory may be out of date or wrong; the
   library is the curated peer-reviewed source.
@@ -85,8 +104,8 @@ Every time you quote or paraphrase the library in your reply:
   "what's a good 5-point Likert scale?" and `survey-design` already
   answers this, answer from the skill. Reserve library calls for
   topics the skills don't cover.
-- **Questions about the customer's own documents.** Those live in the
-  per-user `usr_<user_id>` workspace — use
+- **Questions about the customer's own documents.** Those are indexed
+  in the customer's own workspaces, not in this library — use
   `search_document_chunks_by_keyword` / `get_document_summary` for
   those, not the methodology tools.
 - **Basic platform questions.** "How do I create a respondent pool?"
@@ -95,21 +114,25 @@ Every time you quote or paraphrase the library in your reply:
 
 ## What the library contains (scope)
 
-The shared methodology library is a curated corpus of ~23
+The shared methodology library is a curated corpus of about 25
 peer-reviewed textbooks and papers covering:
 
-- Survey design fundamentals — Dillman (tailored design), Fowler,
-  Tourangeau (psychology of response), Bradburn, Oppenheim
-- Total Survey Error, quality, and costs — Groves (by reference via
-  chapters in Marsden & Wright), de Leeuw/Hox/Dillman
-- Sampling and weighting — Saris & Gallhofer, Heeringa et al.
-- Adaptive design, R-indicators — Schouten, Calinescu, Cobben
-- Satisficing and response quality — Krosnick & Presser (chapter)
+- Survey design fundamentals — Dillman, Smyth & Christian (tailored
+  design), Tourangeau, Rips & Rasinski (psychology of response),
+  Oppenheim, Schwarz, Stantcheva, the Marsden & Wright handbook
+- Question wording and scales — Krosnick & Presser, Krosnick, Likert,
+  Saris & Gallhofer
+- Analysis of complex samples and weighting — Heeringa, West & Berglund
+- Adaptive design, R-indicators — Schouten, Calinescu, Cobben,
+  Bethlehem
+- Response quality, coding reliability, editing — Zhang & Conrad
+  (speeding), Krippendorff (α), the EDIMBUS editing and imputation
+  manual
 - Validity & reliability — Taherdoost, Aithal & Aithal
 - Questionnaire logic and graph-theoretic structure — Fagan & Greenberg,
-  Elliott, Schiopu-Kratina, Feeney, Manski & Molinari, Willenborg
+  Elliott, Schiopu-Kratina, Feeney, Manski & Molinari, Bethlehem &
+  Hundepool
 - AI-assisted survey research — Olivos & Liu (ChatGPTest)
 
-Call `list_methodology_papers` for the authoritative current list —
-the catalog updates whenever papers are added to
-`docs/methodology_library/` and the ops script is re-run.
+`list_methodology_papers` is the authoritative current list; this
+outline can lag it.

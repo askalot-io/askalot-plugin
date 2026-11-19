@@ -10,7 +10,9 @@ Jumping between unrelated topics confuses respondents and increases
 cognitive burden.
 
 In QML: use thematic blocks (3-8 blocks per questionnaire). Each block
-should cover a coherent topic area.
+should cover a coherent topic area. A branch inside a topic (items only
+some respondents answer) is its own block carrying the branch's guard
+as its block-level precondition (see `filter-patterns.md`).
 
 ## Start With Salient, Easy Questions
 
@@ -22,7 +24,12 @@ Begin with questions that are:
 The first questions set expectations. If they seem irrelevant, boring,
 or threatening, respondents disengage or abandon the survey.
 
-NEVER start with demographics. Start with the survey's main topic.
+Do not open with demographics; start with the survey's main topic and
+leave demographics that only describe the respondent to the end. The
+exception is an attribute that routing needs (age, employment,
+household composition in a screening block): it must come before the
+blocks it gates, so keep that screening block short and ask only what
+gates something (`adaptive-survey-design.md`).
 
 ## Place Sensitive Questions Late
 
@@ -51,8 +58,10 @@ answer "Does not apply" for follow-ups to items they answered "No" to.
 Grouping filters lets respondents move through screening quickly, then
 only see relevant follow-ups.
 
-In QML: place all Switch/Radio screening items early in the block,
-then place preconditioned follow-up items after.
+In QML: place the Switch/Radio screening items first, then the
+follow-ups. One follow-up carries its own precondition; two or more
+follow-ups to the same screen go in their own block with a block-level
+`precondition` (`filter-patterns.md`).
 
 ## Chronological Order for Events
 
@@ -76,7 +85,8 @@ Mitigation strategies:
 - Place general questions BEFORE specific ones when both are on the same
   topic (to avoid subtraction)
 - Vary question types and response formats to break response patterns
-- Use block-level randomization when topic order doesn't matter
+- QML has no block or option randomization (blocks follow file order),
+  so decide the order deliberately rather than relying on rotation
 
 ## Fatigue-Aware Ordering
 
@@ -103,13 +113,14 @@ items before the next demanding question.
 Respondent engagement follows a predictable pattern:
 - **First third**: highest engagement, most careful responses
 - **Middle third**: gradual decline, some satisficing begins
-- **Last third**: lowest quality, most satisficing and speedin
+- **Last third**: lowest quality, most satisficing and speeding
 
 **Placement strategy by priority:**
 1. Most important research questions → first third
 2. Questions requiring careful judgment → first half
 3. Standard topic questions → middle
-4. Simple factual/demographic questions → last third
+4. Simple factual/demographic questions → last third (except the
+   attributes routing needs, which come first)
 5. Validation and consistency checks → throughout
 
 ### Grid and Matrix Spacing

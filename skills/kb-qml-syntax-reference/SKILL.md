@@ -1,7 +1,6 @@
 ---
 name: kb-qml-syntax-reference
 description: Pointer to the public QML syntax reference at docs.askalot.io/guide/qml-syntax. Use when an agent or CLI user needs the canonical reader-facing QML grammar (item kinds, controls, preconditions, postconditions, code blocks) rather than the distilled qml-syntax skill that ships with this plugin. Live page; if it disagrees with this skill, trust the live page.
-disable-model-invocation: false
 ---
 
 # QML Syntax Reference

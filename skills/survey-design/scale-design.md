@@ -21,11 +21,14 @@ Never force a unipolar concept onto a bipolar scale or vice versa.
 ## Scale Length: 4-5 Categories
 
 Limit ordinal scales to 4-5 categories as a default. This provides enough
-discrimination without overwhelming respondents.
+discrimination without overwhelming respondents (Dillman, Smyth & Christian
+2014, "limit scales to four or five categories").
 
 - 2-3 points: too few, respondents can't differentiate adequately
-- 4-5 points: optimal for most research purposes
-- 7+ points: only for expert populations or validated instruments
+- 4-5 points: the default; optimal for unipolar scales
+- 5 or 7 points: bipolar scales (two or three levels either side of the
+  midpoint); use 7 only for a key measure or a validated instrument
+- More than 7 points: only for validated instruments that define them
 - 10-100 point scales: only when measuring magnitude (pain, satisfaction indices)
 
 In QML: use Slider with appropriate min/max for numeric scales, or Radio
@@ -85,7 +88,7 @@ When a natural numeric metric exists, use it instead of vague frequency labels.
 - BAD: "How often do you visit the doctor?" → "Rarely / Sometimes / Often"
 - GOOD: "How many times did you visit a doctor in the past 12 months?" → Numeric input
 
-In QML: use a Number control with appropriate min/max rather than a Radio
+In QML: use an Editbox with appropriate `min`/`max` rather than a Radio
 with vague frequency labels.
 
 ## Scale Selection by Construct Type
@@ -95,7 +98,7 @@ scale to what you're measuring:
 
 | Construct | Recommended Scale | Example |
 |-----------|-------------------|---------|
-| Frequency | Natural metric (count) or frequency scale | "How many times per week...?" → Number |
+| Frequency | Natural metric (count) or frequency scale | "How many times per week...?" → Editbox |
 | Satisfaction | Unipolar 5-point | "Not at all satisfied" → "Extremely satisfied" |
 | Agreement | Bipolar 5-point or branching | "Strongly disagree" → "Strongly agree" |
 | Likelihood | Unipolar 4-5 point | "Not at all likely" → "Extremely likely" |
@@ -115,7 +118,7 @@ In long surveys (80+ items per respondent), fewer response categories
 per question reduces total cognitive burden:
 
 - For non-critical items: 4 categories may suffice
-- For key research questions: use 5-7 categories for precision
+- For key research questions: use 5 categories, or 7 on a bipolar scale, for precision
 - For screening/routing items: use binary (Yes/No) wherever possible
 
 The cumulative time saved from shorter scales across many items can

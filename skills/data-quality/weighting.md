@@ -10,8 +10,9 @@ and established survey weighting literature.
 ### Raking vs Post-Stratification
 - **Raking (iterative proportional fitting)**: Preferred when adjusting for 5-8 marginal
   variables simultaneously. Each variable adjusted independently, then iterated until
-  convergence. This is the method Askalot runs inside `code_open_ends` (the
-  Bronze→Silver derive rakes on the coded case base)
+  convergence. This is the method Askalot runs: the Bronze→Silver derive
+  (`code_open_ends` / `derive_silver`) codes the open ends, then rakes once over the
+  coded case base
 - **Post-stratification**: Preferred when adjusting for 2-3 cross-tabulated variables
   (e.g., age × gender cells). More precise but requires sufficient respondents per cell
 
@@ -20,7 +21,9 @@ and established survey weighting literature.
 - Use post-stratification when you have few variables but need precise cell matching
 - **Do not weight** when sample already matches targets (RMSE < 0.02) — adds variance
   without meaningful improvement
-- **Do not weight** on outcome variables — only on demographic/design variables
+- **Do not weight** on outcome variables — only on demographic/design variables. To check an
+  outcome against an outside figure, give its Calibration Target the `benchmark` role: it is
+  graded, not weighted on
 
 ## Design Effect (DEFF)
 
@@ -35,6 +38,11 @@ DEFF = 1 + CV², where CV = standard deviation of weights / mean of weights
   groups drive the high DEFF
 - **DEFF > 3.0**: Problematic — effective sample size less than 1/3 of actual. Consider
   trimming weights or redesigning the sampling approach
+
+Askalot's quality readout labels the same number with three coarser bands: below 1.5
+`low`, 1.5 to 2.5 `caution` (treat small subgroup estimates with care), 2.5 and above
+`fragile`. When you quote the platform's band, use its name and boundaries; use the
+finer bands above to say more about a value inside one.
 
 ### Effective Sample Size
 n_eff = n / DEFF
@@ -51,7 +59,9 @@ significance tests, and margin-of-error calculations should use n_eff, not n.
 - **CV > 1.0**: Concerning — high weight variability, consider trimming
 
 ### Max Weight Ratio
-The ratio of the largest weight to the smallest weight (or to the mean weight).
+The ratio of the largest weight to the mean weight. Askalot's weighting diagnostics
+report `weight_ratio` as largest ÷ smallest instead, so compute max ÷ mean from
+`weight_max` and `weight_mean` before applying these bands.
 
 - **Max/mean < 3:1**: Acceptable
 - **Max/mean 3:1 to 4:1**: Review the heavily weighted group — why are they so rare?
@@ -87,6 +97,11 @@ Apply trimming when:
 
 **Caution:** Over-trimming can undo the representativeness gains from raking. Always
 compare quality metrics before and after trimming.
+
+Askalot's derive trims once, not iteratively: after raking it clips every weight to
+the range 0.1 to 10, rescales the weights to sum to n, and does not re-rake. A margin
+that `raking_reached` shows short of its target on a heavily clipped sample is this
+step's cost.
 
 ## Evaluating Weighting Effectiveness
 
@@ -132,6 +147,12 @@ Each additional raking variable increases weight variance. With > 8 variables:
 ### Adjusting on Outcome Variables
 Never weight on variables that are outcomes of interest (e.g., don't weight by
 satisfaction level to study satisfaction drivers). This introduces circular bias.
+
+In Askalot an outcome target belongs on the Bundle as a **benchmark-only** Calibration
+Target (`role: "benchmark"`), never as a raked one. Bundle quality grades the fielded and
+the weighted sample against it (`benchmarks` on `fielded` and `weighted`), so it stays an
+independent referent. A raked target is never graded: `raking_reached` only shows how close
+raking got to it, which measures convergence, not representativeness.
 
 ### Assuming Weighting Fixes Everything
 Weighting adjusts for measured differences between sample and target. It cannot correct:

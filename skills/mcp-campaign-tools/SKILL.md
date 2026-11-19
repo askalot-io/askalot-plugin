@@ -21,10 +21,28 @@ naming which step a stop came from. Nothing unwinds: a chain that stops partway
 leaves what the earlier steps built, and you resume by calling the remaining
 tools yourself.
 
+A stop is not a tool error. `prepare_campaign_fielding` and
+`simulate_campaign_responses` return a normal result either way, so read the
+fields before reporting success:
+
+- Finished: `prepare_campaign_fielding` has `ready_to_invite: true`;
+  `simulate_campaign_responses` has a `task_id`. Both carry `next_step`.
+- Stopped at a step: `error` and `detail` are set and `stopped_at_step` names
+  the step (`strategy`, `pool`, `assignment`, `publish`, `surveys`; for the
+  simulation `surveys`, `fill`). The ids of what earlier steps built are in the
+  same result (`strategy_id`, `pool_id`, `qml_version_id`, `surveys_created`).
+- Refused before any step: `error` and `detail` are set and `stopped_at_step`
+  is null. Nothing was built; fix the precondition and call again.
+
+`run_bundle_pipeline` reports a failure with `error`, `detail`, its `task_id`
+and a non-null `stopped_at_step` naming the step. A step's own refusal is
+passed through as that step answered it, so it may carry no `success` key:
+branch on `stopped_at_step`, never on `success`.
+
 | Chain | One call | Raw steps it runs |
 |---|---|---|
-| Prepare a campaign for fielding | `prepare_campaign_fielding(campaign_id, admits_volunteers, strategy_name, target_size)` -- `target_size` is the pool draw's requested size; the draw settings go to the pool, not the strategy | `create_sampling_strategy` -> `generate_pool_from_strategy` -> `assign_pool_to_campaign` -> `publish_qml_file` -> `bulk_create_surveys` |
-| Simulate a campaign's responses | `simulate_campaign_responses(campaign_id, distribution, profiles, max_surveys)` | `bulk_create_surveys` -> `mass_fill_surveys` (returns a `task_id`; poll `get_task_status`) |
+| Prepare a campaign for fielding | `prepare_campaign_fielding(campaign_id, admits_volunteers, strategy_name, target_size; factors?, quality_metric?, oversample_factor?, selection_algorithm?, require_email?, pool_name?)` -- `target_size` is the pool draw's requested size; the draw settings go to the pool, not the strategy. `admits_volunteers` has no default and must restate the campaign's own setting: omitted it is refused as `volunteer_admission_unset`, different as `volunteer_admission_mismatch` (change the campaign with `update_campaign` first). The campaign must already name its questionnaire (`campaign_has_no_questionnaire`) | `create_sampling_strategy` -> `generate_pool_from_strategy` -> `assign_pool_to_campaign` -> `publish_qml_file` -> `bulk_create_surveys` |
+| Simulate a campaign's responses | `simulate_campaign_responses(campaign_id; distribution?, profiles?, max_surveys?)` -- `distribution` is `realistic` (default), `random` or `llm`; `profiles` are persona names cycled over respondents (`young_single`, `married_family`, `retired`, `high_income`, `random`; default `random`). Refused when any of the campaign's surveys has had a real invitation sent | `bulk_create_surveys` -> `mass_fill_surveys` (returns a `task_id`; poll `get_task_status`) |
 | Run the dataset chain | `run_bundle_pipeline(bundle_id, include_demographics, gold_name)` | `create_bronze_dataset` -> `code_open_ends` -> `create_gold_dataset` (returns a `task_id`; poll `get_task_status`) |
 
 Two things to know before you use them:
@@ -36,7 +54,9 @@ Two things to know before you use them:
   separate decision, after reading what the chain returned. It also runs
   `publish_qml_file`, which a hand-built chain routinely forgets -- a campaign
   fielding an unpinned questionnaire serves whatever the head says at each
-  moment.
+  moment. Calling it again does not resume a stopped run: every call creates a
+  new strategy and a new pool and rebinds the campaign to that pool (existing
+  surveys are kept, newly drawn respondents get new ones).
 - **A chain is a capability boundary, not a convenience wrapper.** The composite
   re-asks each step's capability before running it, so a caller who cannot
   afford step four is refused *before* step one rather than handed a half-built
@@ -47,8 +67,8 @@ Two things to know before you use them:
 
 - `create_project` -- Create research project with clear objectives
 - `create_questionnaire` -- Register QML questionnaire
-- `create_campaign` -- Create data collection campaign. `offers_ai_channel` is required with no default (whether respondents may also answer in their own AI assistant); when true, `intro_text` and `consent_text` are required too
-- `send_campaign_invitations` -- Send survey invitations via email
+- `create_campaign` -- Create data collection campaign. `admits_volunteers` (whether walk-ins beyond the drawn pool may answer) and `offers_ai_channel` are required with no default; `status` starts as `draft` (default), `active` or `scheduled`. `offers_ai_channel` is whether respondents may also answer in their own AI assistant; when true, `intro_text` and `consent_text` are required too
+- `send_campaign_invitations` (campaign_id; respondent_ids? or send_to_all_uninvited=true) -- Send survey invitations. This emails real respondents and cannot be undone; a respondent with no email, with `notification_preference` `none`, or whose survey is already started or completed is skipped
 
 ## Sampling Strategy
 
@@ -61,6 +81,9 @@ Two things to know before you use them:
 ## Respondent & Pool Management
 
 - `create_respondent` -- Add individual respondents
+- `plan_sample_size` (project_id, eligibility_rate, response_rate, design_effect; targets?, strategy_id?, factor_shares?, population_size?) -- Read-only. Sizes a draw from the Project's goal targets (margin of error or two-group power, two-sided, normal approximation): returns `draw_settings` (`requested_size`, the completes needed, and `oversample_factor`, 1 / (eligibility x response)), the `plan` (per-goal requirements, the number to invite, the justification) and the `saved` plan (`revision`, targets, context and each value's `provenance`). `factor_shares` carries the groups the paper states (`{"paper:<group>": {<category>: share}}`). `targets` omitted means the saved ones; `design_effect` is required like both rates, and a past wave's comes from the newest Study's results block in `get_sizing_evidence`. Use it instead of computing sample sizes yourself
+- `get_sizing_evidence` (project_id; strategy_id?, goal_ids?) -- Read-only. What a sizing proposal may draw on: each paper goal with its own passage, the `target_audience` and `sampling_strategy` text (the planner's own block removed), the newest non-stale Study's results block (the last wave's yield, design effect and each KPI's usable responses, observed share or spread and achieved margin or power) with that Study's Across-waves passage, and with a Strategy its factor shares and eligible frame. It reads no campaign or Bundle. Read it, and the saved plan, before any sizing or fielding advice, then propose by the `sampling-theory` skill's `references/sizing-proposal.md` (its *Sizing a Project* section is the whole protocol), citing each methodology passage you use by author, year and `paper_id`
+- `save_sizing_targets` (project_id, targets, base_revision, context, provenance?) -- Save every goal's target, the planning context and each value's provenance on the Project's paper, replacing the saved set, and write the paper's "Sample size" block (the same save the Size Planner page in Targetor makes). Pass the `revision` you read as `base_revision` (0 when nothing is saved); a stale revision is a conflict: read again and reapply. Both rates, every group share and any value marked `needs_confirmation` need `confirmed_via: "agent"`, set only for a value the user stated or accepted in the conversation; an unconfirmed one is refused, naming it. Save only when the user asks
 - `generate_pool_from_strategy` -- Draw a pool from a strategy. `requested_size` is required; `oversample_factor` (default 1.0, >= 1), `selection_algorithm` (`greedy` default, or `random_constrained`), `require_email` (default false) and `exclude_respondent_ids` (default none) are optional. The pool stores these settings, so one strategy can feed a 200-person pilot and a 1,000-person main wave
 - `preview_pool_generation` -- Same draw inputs, nothing persisted (dry run); reports `requested_size`, `effective_size` (requested x oversample) and `eligible_count`
 - `refresh_pool_from_strategy` (pool_id) -- Redraw with current respondent data using the pool's own stored settings; it takes none. To draw at a different size, generate a new pool
@@ -89,10 +112,11 @@ calls.
 
 ## Quality Assessment (Post-Collection, Bundle-scoped)
 
-- `get_bundle_quality` (bundle_id) -- The Bundle's Representativeness story: one sample traced from design intent to deliverable. (1) `selection` Strategy -> Pool: did sampling achieve the design? (2) `fielded` Strategy -> Actual: how far off was the realized base before weighting, with a per-campaign breakdown. (3) `weighted` Strategy -> Weighted: did weighting recover the design? Graded against the SAME Strategy as (2), so the two differ by exactly what weighting recovered. (4) `fielding_shift` Pool -> Actual: what fielding itself contributed -- Pool-referenced, so never read it as a fourth point on the Strategy scale. (5) `response`: entropy, straightlining, Cronbach's alpha, acquiescence. Plus `excluded_profile`: who the completeness threshold removed, compared against who it kept. The Calibration Targets are the weighting INSTRUCTION, not a benchmark -- a weighting that targeted none of the design reads as `no_weighted_factors`, not as a perfect score. Non-measurable parts are reported explicitly with a reason, never averaged over and never scored zero. A Bronze extracted under an older extraction schema version reads `not_measurable` / `bronze_schema_stale` on `fielded`, `fielding_shift`, `response`, `excluded_profile` and `weighted` until it is re-extracted (`create_bronze_dataset`) and Silver derived again.
+- `get_bundle_quality` (bundle_id) -- The Bundle's Representativeness story: one sample traced from design intent to deliverable. (1) `selection` Strategy -> Pool: did sampling achieve the design? (2) `fielded` Strategy -> Actual: how far off was the realized base before weighting, with a per-campaign breakdown. (3) `weighted` Strategy -> Weighted: did weighting recover the design? Graded against the SAME Strategy as (2), so the two differ by exactly what weighting recovered. (4) `fielding_shift` Pool -> Actual: what fielding itself contributed -- Pool-referenced, so never read it as a fourth point on the Strategy scale. (5) `response`: entropy, straightlining, Cronbach's alpha, acquiescence. Plus `excluded_profile`: who the completeness threshold removed, compared against who it kept. Raked Calibration Targets are the weighting INSTRUCTION, not a benchmark -- a weighting that targeted none of the design reads as `no_weighted_factors`, not as a perfect score. `fielded` and `weighted` also carry `benchmarks`: every benchmark-only Calibration Target graded per category against the unweighted and the weighted sample, beside the Strategy grade and never inside its composite. `weighted` also carries `raking_reached`: each raked target's weighted share against its target -- how close raking got, never a grade. Non-measurable parts are reported explicitly with a reason, never averaged over and never scored zero. A Bronze extracted under an older extraction schema version reads `not_measurable` / `bronze_schema_stale` on `fielded`, `fielding_shift`, `response`, `excluded_profile` and `weighted` until it is re-extracted (`create_bronze_dataset`) and Silver derived again.
 - `compare_bundle_quality` (bundle_id) -- Bronze vs Silver for the Bundle's own chain. Read its `recovery` field: composite error closed over the factors measured on both sides, comparable across Bundles. Null with a `recovery_reason` means the two shared no measured factor -- report that as "not comparable", never as "weighting achieved nothing". A comparison `state` of `not_measurable` / `bronze_schema_stale` (or `no_strategy`) means nothing was graded: re-extract and re-derive (or assign a Strategy) first.
 - `assign_bundle_strategy` (bundle_id, strategy_id) -- Assign or clear the Bundle's current Strategy (all three Strategy-referenced measures grade against it; null clears)
-- `advance_sampling_strategy` (strategy_id, factors) -- Clone a strategy and append reality-grounded outcome factors (e.g. a party-preference benchmark from survey responses); the original is never edited
+- `set_calibration_targets` (bundle_id, factors | weighting) -- Replace the Bundle's Calibration Targets (the Silver weighting spec) with the FULL list you send. Each target is `{column, target_distribution, name?, factor_type?, bucket_ranges?, role}`; `role` is `raked` (default: Silver weights toward it) or `benchmark` (not weighted on; Bundle quality grades the sample against it -- use it for an outside outcome figure such as an election result or a census share of an answer). Read the current list with `get_bundle` first and send every target back with its `role`, or a benchmark you left out of the payload is lost and one sent without `role` becomes raked. Every save checks answer codes against the Bundle's questionnaire: a key no option of an answer column offers is refused naming the column and the keys; a column whose codes cannot be checked saves with a `warnings` entry. A list in which every target is a benchmark is refused (`weighting_factor_none_raked`) when the targets are the whole weighting set (the `factors` shorthand, or `use_strategy_factors: false`): raking then needs at least one raked target. A save invalidates a ready Silver; derive again
+- `preview_calibration_targets_copy` (bundle_id, source_bundle_id) -- Read-only: which of another Bundle's targets fit this one (`addable`, each with its `role`) and which do not (`rejected`, with a `reason`: `no_bronze`, `column_missing`, `unknown_code` or `preflight:<code>`). Writes nothing; to copy, merge `addable` into this Bundle's current targets and call `set_calibration_targets`. Outcome benchmarks live here, on the Bundle -- a Sampling Strategy holds respondent factors only
 
 ## Bundle Pipeline (Bundle-scoped datasets)
 

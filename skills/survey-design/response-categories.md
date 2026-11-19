@@ -7,8 +7,9 @@ Rules for designing answer options for closed-ended questions.
 Every answer list must include ALL reasonable possible answers. Missing
 categories force respondents into inaccurate answers.
 
-- Add "Other (please specify)" with a comment field when the list may not
-  cover all cases.
+- Add "Other (please specify)" when the list may not cover all cases. In
+  QML this is an "Other" option plus a follow-up Textarea item with a
+  precondition on that option; a choice control has no built-in text field.
 - Always include "Not applicable" or "Does not apply" when the question
   may not apply despite passing preconditions.
 
@@ -31,7 +32,9 @@ lists. Forced-choice format:
 - Transfers better across survey modes
 
 In QML: use individual Switch items with Yes/No options instead of a single
-Checkbox group. Gate follow-up questions on these with preconditions.
+Checkbox item (a Checkbox outcome is a bitmask over power-of-2 label keys,
+which also makes its follow-up gates harder to write). Gate follow-up
+questions on the Switch answers with preconditions.
 
 ## Ranking Questions
 
@@ -49,9 +52,11 @@ mix specific options with vague ones.
 
 ## Randomize When Order Matters
 
-If response option order might bias results (primacy/recency effects),
-consider randomizing the display order. This is especially important for
-nominal categorical questions where no natural ordering exists.
+Response option order can bias results (primacy/recency effects),
+most of all for nominal lists with no natural ordering. QML shows options
+in the order written and has no per-respondent randomization, so for a
+nominal list keep it short, order it neutrally (alphabetical), and prefer
+forced-choice items for a long list.
 
 ## "Not Sure" / "Don't Know" Placement
 

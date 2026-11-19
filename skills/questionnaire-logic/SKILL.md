@@ -11,8 +11,10 @@ correct questionnaire *and* the validator runs clean on the first
 pass). This skill distils the theory and gives you the heuristics
 that fall out of it.
 
-Reach for `methodology-library` for deeper proofs or author
-comparisons; the five papers below are all in the corpus.
+For deeper proofs or author comparisons, search the methodology
+library (`search_methodology_library`, then `get_methodology_chunk`;
+the `methodology-library` skill, where your session offers it, holds
+the citation rules). The papers cited below are all in the corpus.
 
 ---
 
@@ -118,8 +120,10 @@ for merge nodes (multiple inbound edges):
 ```
 
 Linear in the number of edges, and produces the exact set of
-respondents who can ever reach each question. This is the algorithm
-the Z3 validator's reachability pass implements.
+respondents who can ever reach each question. The Z3 validator answers
+the same question differently: QML has no arcs, so for each item it
+asks the solver whether the item's precondition (block guard and item
+precondition together) can hold over the declared answer domains.
 
 ---
 
@@ -152,10 +156,13 @@ make the graph harder to validate (schiopu2015survey, Transformation 2).
 ### 4.3 Avoid forward references in preconditions
 
 A precondition on $Q_a$ that references the answer to a *later*
-question $Q_b$ (backward arc) violates the DAG property and
-introduces ambiguity about evaluation order. The platform's QML Z3
-pass treats these as hard errors. Use `qml-preconditions` skill for
-the concrete QML patterns that avoid forward refs.
+question $Q_b$ makes the authored order misleading. QML does not
+refuse it: items are asked in dependency order, so $Q_b$ is silently
+asked before $Q_a$, even when that pulls $Q_b$ out of a later block.
+Only a true cycle ($Q_a$ reads $Q_b$ and $Q_b$ reads $Q_a$, directly
+or through variables) is an error (`dependency_cycle`). Plan every
+gate to read an earlier item so the file order is the asked order; the
+`qml-preconditions` skill has the concrete QML patterns.
 
 ### 4.4 Place high-coverage questions near the root
 
@@ -169,8 +176,9 @@ count (schiopu2015survey, p.~841, Picard's rule R2).
 Hill (1991, 1993, cited in manski2008skip, p.~251–255) found that
 **contagion errors** — a mistake on an opening question cascading
 through subsequent answers — grow linearly with branch depth. Limit
-explicit branching to 2–3 outgoing arcs; beyond that, convert to a
-categorical question with a single downstream `case` block.
+explicit branching to 2–3 outgoing arcs; beyond that, ask one
+categorical question and give each branch its own block, guarded by a
+block-level precondition on that question's answer.
 
 ---
 
@@ -201,17 +209,21 @@ expensive or sensitive.
 
 ## 6. Mapping to `askalot_qml.z3` static validation
 
-The Z3 validator implements (roughly) these passes. Anticipate what
+The validator (`validate_qml_file`) runs these checks. Anticipate what
 it will flag so qml-planner produces plans that pass on the first
 run:
 
-| Pass | What it checks | Theory backing |
-|---|---|---|
-| Reachability | Every question has at least one path from start under *some* answer pattern | Fagan–Greenberg ideal intersection |
-| Dead-code | No question is unreachable under all answer patterns | Feeney's eligibility algorithm |
-| Cycle detection | Graph is acyclic (no forward-referencing preconditions) | DAG invariant |
-| Consistency | No path carries contradictory filters (e.g. `age<18` AND `employed=true` where `employed` implies `age≥16`) | Feeney's structural-paths check |
-| Postcondition feasibility | Every postcondition has at least one satisfying answer | SMT-solver's built-in check |
+| Check | What it reports | Issue type (severity) | Theory backing |
+|---|---|---|---|
+| Per-item reachability | An item whose precondition (block guard + item) no answer pattern satisfies, e.g. `age < 18 and age > 65` | `unreachable_item` (error) | Fagan–Greenberg reachability; Feeney's eligibility |
+| Postcondition feasibility | A postcondition no answer can satisfy where the item is asked | `infeasible_postcondition` (error) | SMT satisfiability |
+| Global consistency | All preconditions and postconditions together admit no completed interview | `global_unsat` (error) | Consistency of an answer set |
+| Cycle detection | Items whose conditions and codeBlocks depend on each other in a ring | `dependency_cycle` (error) | DAG invariant |
+| Accumulated dead code | An item reachable on its own gate but not once the postconditions of the items before it are assumed. Run only at publish, not by `validate_qml_file` | `accumulated_dead_code` (warning) | Feeney's structural-paths check |
+
+Only errors block publishing. A condition the solver cannot model is
+reported as `skipped_condition` (warning) and is enforced at runtime
+only, so a clean run proves nothing about that condition.
 
 If you find yourself about to hand a plan to qml-writer that would
 trip any of these, revise the plan. Reaching the validator with a
@@ -253,8 +265,8 @@ costs less.
 
 | Symptom | Root cause | Fix |
 |---|---|---|
-| Z3 reports unreachable question | Precondition too narrow or upstream branch misses a path | Widen the precondition or add an arc from the missing branch |
-| Z3 reports contradictory filters on a path | Section boundary violated — a later filter contradicts an earlier one on the same path | Move the filter to a different section or relax the boundary |
+| `unreachable_item` | The item's block guard and its own precondition contradict each other, or contradict the answer domain | Widen the precondition, or move the item to the block whose guard it agrees with |
+| `accumulated_dead_code` at publish | A later filter contradicts what earlier postconditions force on the same path | Move the filter to a different section or relax the earlier rule |
 | Deeply nested skip logic | Too many sequential `if` branches | Flatten to hub-and-spoke (§4.1, §4.2) |
 | Customer complains respondents get stuck | Missing arc to terminal under some answer pattern | Check the connectedness invariant (§1) |
 | High dropout after a gating question | Gate is too aggressive — skip-sequencing net cost exceeds savings | Revisit the gate against Manski's framework (§5) |

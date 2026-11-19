@@ -5,16 +5,14 @@ Profiles define demographic characteristics that influence how respondent agents
 answer survey questions. Each profile is stored as a markdown file with YAML
 frontmatter for metadata.
 
-Profiles are loaded from:
-1. ASKALOT_PROMPTS_DIR/profiles/ (if ASKALOT_PROMPTS_DIR is set)
-2. Module's local profiles/ folder (default)
+Profiles are loaded from this package's own directory, the one location
+(#1670): there is no environment override.
 
 The parsed profile set is cached at process level — profiles do not
 change at runtime.
 """
 
 import logging
-import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Optional
@@ -24,14 +22,6 @@ from askalot_ai.prompts.loader import parse_frontmatter
 logger = logging.getLogger(__name__)
 
 _LOCAL_PROFILES_DIR = Path(__file__).parent
-
-
-def _get_profiles_dir() -> Path:
-    """Get the profiles directory, with environment override support."""
-    env_dir = os.environ.get("ASKALOT_PROMPTS_DIR")
-    if env_dir:
-        return Path(env_dir) / "profiles"
-    return _LOCAL_PROFILES_DIR
 
 
 def _parse_profile_file(file_path: Path) -> dict[str, Any]:
@@ -54,8 +44,7 @@ def _load_all_profiles_cached(profiles_dir: Path) -> dict[str, dict[str, Any]]:
     """Glob + parse every ``.md`` profile under ``profiles_dir``.
 
     Profiles are static within a process, so the result is memoized by
-    directory. The cache key includes the directory so an env-var
-    override flips cleanly in tests.
+    directory.
     """
     if not profiles_dir.exists():
         raise FileNotFoundError(f"Profiles directory not found: {profiles_dir}")
@@ -70,8 +59,8 @@ def _load_all_profiles_cached(profiles_dir: Path) -> dict[str, dict[str, Any]]:
 
 
 def _load_all_profiles() -> dict[str, dict[str, Any]]:
-    """Load all profile files from the active profiles directory."""
-    return _load_all_profiles_cached(_get_profiles_dir())
+    """Load all profile files from the package's profiles directory."""
+    return _load_all_profiles_cached(_LOCAL_PROFILES_DIR)
 
 
 def get_available_profiles() -> dict[str, dict[str, Any]]:
