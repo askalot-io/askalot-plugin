@@ -1,80 +1,71 @@
 ---
 name: askalot-setup
-description: Install-time configuration for the Askalot Claude Code plugin. Use when a user has just installed the askalot plugin from the marketplace and needs to point it at their tenant, sign in via the browser OAuth flow, verify the connection, or revoke an approved client. Covers the OAuth 2.1 flow and the alternate API-token path for non-interactive use.
+description: Install-time configuration for the Askalot Claude Code plugin. Use when a user has just installed the askalot plugin from the marketplace and needs to sign in via the browser OAuth flow, verify the connection, see or switch the organization the session works in, or end a sign-in. Covers the single connection address, the OAuth 2.1 flow and the alternate API-token path for non-interactive use.
 ---
 
 # Askalot Plugin Setup
 
-You've installed the Askalot plugin. The only thing you need to configure
-yourself is the tenant URL — authentication is handled by an OAuth 2.1
-browser handshake on first use, not by pasting a token.
+You've installed the Askalot plugin. There is nothing to configure: the
+plugin connects to Askalot's one MCP address, `https://askalot.io/mcp`, and
+authentication is an OAuth 2.1 browser sign-in on first use, not a pasted
+token. You do not need to know which tenant holds your account; the sign-in
+finds it.
 
-## 1. Point the plugin at your tenant
+## 1. The connection address
 
-Set `ASKALOT_MCP_URL` in the shell that launches Claude Code:
+The plugin's address is fixed at `https://askalot.io/mcp`. The same address
+works for every Askalot account, whether it is a free trial, a paying
+customer, a university or a community organization.
 
-```sh
-# Paying customers, universities and community organizations (EU production):
-export ASKALOT_MCP_URL=https://portor.eu1.askalot.io/mcp
+### Security — verify where you sign in
 
-# Free trial and demo:
-export ASKALOT_MCP_URL=https://portor.dev.askalot.io/mcp
-```
-
-Left unset, the plugin connects to `dev`. If you don't know which tenant
-your account is on, check the URL of the Askalot UI you sign in to —
-`eu1` and `dev` are the two tenants today. Pointing at the wrong one is
-recoverable: sign-in succeeds and then ends with `user_not_in_tenant`,
-whose message gives the `ASKALOT_MCP_URL` value for the tenant your
-account is on. Set it and start Claude Code again; the variable is read
-at launch.
-
-### Security — verify the URL source
-
-`ASKALOT_MCP_URL` must be an `askalot.io` subdomain. The OAuth flow
-opens a browser to the URL you've set; a phishing-supplied URL routes
-you to an attacker-controlled login page that captures your
-credentials. Only use URLs from official Askalot documentation
-(`https://docs.askalot.io`) or direct askalot.io operator
-communication.
+The sign-in opens pages on `askalot.io` and on the platform's sign-in
+service, `oidc.platform.askalot.io`. Enter your Askalot password only
+there. If a browser window asking for it shows any other host, close it.
+For a connector you add by hand (Claude Desktop, claude.ai), take the
+address from official Askalot documentation (`https://docs.askalot.io`)
+or direct askalot.io operator communication.
 
 ## 2. Sign in via OAuth on first use
 
 The first time Claude Code calls an Askalot MCP tool after install,
-Portor returns a 401 with an OAuth discovery hint and Claude Code
-opens your browser to Askalot's authorization endpoint:
+the server answers 401 with an OAuth discovery hint and Claude Code
+opens your browser to Askalot's sign-in:
 
 ```
-Portor /authorize → platform-OIDC /login → you sign in → tokens
-issued back to Claude Code
+askalot.io/authorize → platform-OIDC sign-in → you sign in → your tenant
+issues tokens back to Claude Code
 ```
 
 What happens, step by step:
 
 1. Claude Code calls (for example) `mcp__plugin_askalot_askalot__list_projects`.
-2. Portor responds with `401 Unauthorized` and a `WWW-Authenticate`
+2. `askalot.io` responds with `401 Unauthorized` and a `WWW-Authenticate`
    header pointing at its OAuth metadata.
-3. Claude Code reads `/.well-known/oauth-authorization-server`,
-   registers itself dynamically with Portor, and opens your default
-   browser to Portor's `/authorize` endpoint.
-4. Portor redirects you to the platform OIDC provider's login page
-   (`oidc.platform.askalot.io`). Above the form it names the
-   application asking to connect and the address your sign-in sends
-   access to; for Claude Code that address is on your own machine
-   (`localhost`). There is no separate consent screen: signing in is
-   the approval, so stop if the application or address is not what you
-   expect.
-5. The browser redirects back to a local Claude Code callback URL
-   with an authorization code.
+3. Claude Code reads that metadata and opens your default browser to
+   `https://askalot.io/authorize`. There is no registration step.
+4. The browser lands on the usual Askalot sign-in page
+   (`oidc.platform.askalot.io`): you enter your email and then sign in
+   the way you do on the web. Only if your email has an account on more
+   than one Askalot tenant are you asked which one to use. Above the
+   form the page names the application asking to connect and the
+   address your sign-in sends access to; for Claude Code that address
+   is on your own machine (`localhost`). There is no separate consent
+   screen: signing in is the approval, so stop if the application or
+   address is not what you expect.
+5. The browser passes through your tenant and then back to a local
+   Claude Code callback URL with an authorization code.
 6. Claude Code exchanges the code for an access token + refresh
-   token at Portor's `/token` endpoint and stores both.
+   token at `https://askalot.io/token` and stores both.
 
 The plugin then retries the original tool call with the new bearer
 token in the `Authorization` header. From here on, the refresh token
-is exchanged transparently when the access token expires.
+is exchanged transparently when the access token expires, and every
+call is served by the tenant you signed in to.
 
 You see the browser handshake once, and again only after the sign-in
-has ended (section 5).
+has ended (section 5). A connection made before Askalot moved to the
+single address needs one new sign-in.
 
 ## 3. Verify the connection
 
@@ -119,7 +110,9 @@ menu offers you in the browser.
 Every later call resolves in the new organization, and the change **sticks**:
 restart Claude Code and you resume where you left off. Switch back the same
 way. The tenant is fixed when you sign in and never changes — switching moves
-you between organizations inside one tenant.
+you between organizations inside one tenant. To work on another tenant your
+email has an account on, end the sign-in (section 5) and sign in again,
+choosing that tenant.
 
 **When you are in the wrong one.** A not-found now tells you where it looked:
 
@@ -201,11 +194,14 @@ accident. Store API tokens in a secrets manager (e.g. macOS Keychain,
 - **`401 Unauthorized` after a successful sign-in:** the refresh
   token may have been revoked. Try a new MCP tool call to re-trigger
   the OAuth handshake.
-- **`invalid_redirect_uri` in the browser:** Claude Code's localhost
-  callback URL changed between install and use. Re-running
-  `/plugin install` registers a fresh client.
-- **Sign-in succeeds, then `user_not_in_tenant`:** your account is on
-  the other tenant. Set `ASKALOT_MCP_URL` to the URL the message gives
-  and start Claude Code again.
-- **Tool calls hang or refuse to connect:** check `ASKALOT_MCP_URL`
-  resolves and the tenant is reachable from your network.
+- **`invalid_redirect_uri` in the browser:** the callback address the
+  client used is not one its client metadata document lists. Reinstalling
+  changes nothing, since there is no registration: end the sign-in
+  (section 5), restart Claude Code and connect again. If it persists,
+  the client's metadata document is out of date; report it.
+- **Sign-in succeeds, then `user_not_in_tenant`:** the connection was
+  made at one tenant's own address rather than the single one. Connect to
+  `https://askalot.io/mcp` instead; its sign-in finds the tenant that holds
+  your account.
+- **Tool calls hang or refuse to connect:** check that `askalot.io` is
+  reachable from your network.

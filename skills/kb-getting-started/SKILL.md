@@ -1,6 +1,6 @@
 ---
 name: kb-getting-started
-description: Pointer to the public getting-started guide at docs.askalot.io/getting-started/quick-start. Use when an agent or CLI user is new to Askalot and needs an end-to-end onboarding overview — what the platform is, what the tenant URL pattern looks like, and how to take a first survey live.
+description: Pointer to the public getting-started guide at docs.askalot.io/getting-started/quick-start. Use when an agent or CLI user is new to Askalot and needs an end-to-end onboarding overview — what the platform is, how to connect, and how to take a first survey live.
 ---
 
 # Getting Started
@@ -20,7 +20,7 @@ Use the live page when:
   the live docs before opening any MCP tool
 
 The bundled `askalot-setup` skill covers install-time configuration
-(tenant URL, the OAuth browser sign-in, verification, the active
+(the single connection address, the OAuth browser sign-in, verification, the active
 organization, ending a sign-in, and API tokens for REST use).
 The getting-started page covers the **product** — what to do *after* you
 have a working install.

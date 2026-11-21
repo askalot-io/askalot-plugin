@@ -138,8 +138,10 @@ per row).
    "Choosing MCP or REST" in `api/mcp.md`, reachable through
    `get_documentation`.)
 2. Discover the REST surface via `/api/v1/docs` (Swagger UI) or
-   `/api/v1/openapi.json`, on the same host as the MCP endpoint
-   (`https://portor.<tenant>.askalot.io`). Every entity has REST CRUD
+   `/api/v1/openapi.json`, on your tenant's own host
+   (`https://portor.<tenant>.askalot.io`), not on the MCP address
+   `askalot.io/mcp`: the server instructions name the exact REST URL for
+   the tenant this session signed in to. Every entity has REST CRUD
    except two groups: Datasets have list, get, delete and export only
    (`/api/v1/datasets`), and the QML lifecycle tools, the upload-handle
    pair and the pipeline-job verbs `code_open_ends` / `derive_silver`
