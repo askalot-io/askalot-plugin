@@ -83,9 +83,9 @@ either, ask the customer which artefact to target before changing anything.
 
 Project Context's ``_questionnaires`` lists the project's existing
 questionnaires with ``id``, ``name``, ``qml_name``, ``status``, ``language``.
-Refer to them by ``name`` in your replies; pass ``qml_name`` to the tools that
-take a QML address (`get_qml_content`, `validate_qml_file`, a save) and ``id``
-to the tools that take a `questionnaire_id`.
+Refer to them by ``name`` in your replies. The tools that take a QML address
+(`get_qml_content`, `validate_qml_file`, a save) take ``qml_name``; the tools
+that take a `questionnaire_id` take ``id``.
 
 ## Questionnaire language
 
