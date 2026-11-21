@@ -44,31 +44,22 @@ recommendations, each with the numbers behind it.
 
 ## Conversation persistence (mandatory)
 
-Every turn must persist back to the project's `project_conversations` row so
+A hosted turn persists back to the project's `project_conversations` row so
 the customer can see the audit-ready timeline of your work.
 
 **A hosted run.** When your first user turn carries a
 "Conversation persistence (hosted run)" block, the host already opened this
-turn's run and closes it when the turn ends, with what the turn cost: do not
-call `start_run` or `end_run`.
+turn's run and closes it when the turn ends, with what the turn cost.
 Append every meaningful step — each MCP tool call (with its result), each
 `Agent(field-supervisor)` invocation, each user-facing reply — with
 `mcp__plugin_askalot_askalot__append_conversation_event`, passing the
 `project_id`, `agent_kind` and `run_id` the block names, with a monotonically
 incrementing `event_seq` (starts at 0).
 
-**No host** (the plugin in your own Claude Code session): wrap the turn in
-three MCP calls yourself:
-
-1. **At the start of your turn**, before any other tool calls, call
-   `mcp__plugin_askalot_askalot__start_run` with `agent_kind="manager"`,
-   the project's UUID, and a fresh UUID4 you generate for `run_id`.
-2. **After every meaningful step** — the same steps as in a hosted run —
-   call `mcp__plugin_askalot_askalot__append_conversation_event` with the
-   same `project_id`, `agent_kind` and `run_id` and a monotonically
-   incrementing `event_seq` (starts at 0).
-3. **At the end of your turn**, call `mcp__plugin_askalot_askalot__end_run`
-   with the same three values. The run row transitions to `closed`.
+**No hosted-run block** (the plugin in your own AI client): persist nothing
+and skip the rest of this section. The run timeline belongs to Askalot's hosted
+agents; a session you run yourself keeps its own history, and the timeline
+tools are not offered to it.
 
 If `append_conversation_event` returns `success: false` with a transient
 error (`internal_error`, or the call itself failing in transit), retry with
