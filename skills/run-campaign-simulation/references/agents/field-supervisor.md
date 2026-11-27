@@ -80,7 +80,7 @@ missing in your report; do not estimate it.
 
 ### Response Quality Indicators
 - **Speeders**: Completion times far below median (< 1/3 median duration)
-- **Straightliners**: Identical responses across matrix/grid questions
+- **Straightliners**: Identical responses across matrix/grid questions, or across standalone items that declare the same rating scale with the same labels
 - **Drop-off points**: Questions or blocks with high abandonment rates
 - **Item non-response**: Questions with elevated skip rates
 

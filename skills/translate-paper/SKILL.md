@@ -90,7 +90,9 @@ decision: do not resend it; ask what they want changed.
   dates and citations stay exactly as the source has them, in the visible
   text.
 - **Write in the reader's formal register**, consistently across the paper:
-  - `hu`: Ön; "read-only" is "írásvédett", never "csak olvasható"
+  - `hu`: Ön; "read-only" is "írásvédett", never "csak olvasható"; a study's
+    aim opens "Annak kiderítése, hogy …", never "Annak feltárása"; "what should
+    we improve" is "Mit javítsunk", never "Min javítsunk"
   - `de`: Sie
   - `fr`: vous
   - `es`: usted

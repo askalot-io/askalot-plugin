@@ -138,15 +138,20 @@ of these ways:
 - **From the machine that holds it**: sign out of the Askalot server in
   Claude Code (its `/mcp` menu). The next MCP call gets a 401 and the
   browser handshake runs again.
+- **By changing or resetting your password**: a new password ends every
+  MCP sign-in you hold, on every machine, as it ends your browser sessions.
+  Each machine signs in again at its next call.
 - **By losing the organization**: when an administrator removes you from
   the organization the session acts in, its tokens are revoked.
 - **By disuse**: the access token lasts 1 hour and the refresh token
   30 days, so a sign-in nothing uses for 30 days is dead.
 
-There is no self-service way to end the sign-in of a machine you no
-longer have. For a lost or stolen machine, contact Askalot
-(`info@askalot.io`), and say so plainly to a user who asks: revoking
-API tokens in Profile Settings does not touch it.
+For a lost or stolen machine, change the password (Profile Settings) or
+reset it from the sign-in page: that ends the lost machine's sign-in along
+with every other. A user who cannot do that, or who wants only that one
+machine's sign-in ended, contacts Askalot (`info@askalot.io`), and an
+operator revokes it. Say so plainly to a user who asks: revoking API
+tokens in Profile Settings does not touch it.
 
 ## Non-interactive use: API tokens for REST / CI
 

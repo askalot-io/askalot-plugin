@@ -136,13 +136,22 @@ QML, an assessment, an evaluation).
 2. **Delegate to `research-evaluator` — only when a research paper is present**
    in your task context. Forward in the delegation message: the project id, the
    paper content from your task prompt verbatim, the pre-computed metrics block,
-   the questionnaire's items as `{ref, prompt_text, kind, is_open_ended}`
-   (read them with `get_qml_content` first), and the Bundle's coded units:
+   any KPI the paper says is answered from panel or derived data (with that
+   data named), and the Bundle's coded units:
    `get_bundle_coding`'s `selected` as it returns it (`[]` when the Bundle codes
-   nothing; say there is no Bundle when there is none). The evaluator cannot
-   read any of these itself, the chain counts a goal as covered only by item
-   refs it was given, and without the selection it cannot see that an
-   open-ended goal no coded unit carries is not analyzable. It returns a per-goal assessment (`Answerable` / `Partial` / `Not`,
+   nothing; say there is no Bundle when there is none). Also read the paper
+   yourself (`read_paper`, the `instrument_design` unit) and forward its
+   collection facts: each KPI's mode from `kpi_collection` (`one_item`,
+   `several_items`, `open_ended`, `not_collected`) and, for every `open_ended`
+   KPI, the items of `instrument_tables` that list it, with their
+   questionnaire and item id. When the unit carries neither key (no
+   questionnaire has an item inventory), say so. The evaluator cannot
+   read any of these itself: it holds no tool that reads the paper. It needs
+   no other questionnaire items: the chain reads which item collects which KPI
+   from the questionnaires' item inventories. Without the selection it cannot
+   see that an open-ended goal no coded unit carries is not analyzable, and
+   without the collection facts it cannot tell which KPIs depend on coding.
+   It returns a per-goal assessment (`Answerable` / `Not`,
    the broken link, the phase) sourced from the shared answerability chain (the
    post-collection case of the same relationship), not an independent parallel
    computation. When no research paper is present, skip this delegation and
@@ -172,8 +181,9 @@ For a free-form evaluation, present your unified report as:
 
 ### 1. Research Goal Assessment
 - For each RQ-*: Can it be answered? What does the data show?
-- For each KPI-*: Was the value computed per its Definition? Open-collection
-  KPIs: were the responses coded/clustered (see `semantic_clustering_candidates`)?
+- For each KPI-*: Was the value computed per its Definition? KPIs whose
+  `kpi_collection` (on `read_paper`'s `instrument_design` unit) reads
+  `open_ended`: were the responses coded/clustered?
 - For each SC-*: Was it met?
 - Overall: Are the research goals achievable from this dataset?
 
@@ -230,12 +240,25 @@ Structure* and *Two-tier output*):
   a pending proposal; the chapter is written only when the researcher approves
   it, and not at all if they reject it.
 - **the `kpi_measures` block** — for each goal the saved sample-size plan
-  sized, which Silver column measures it and which answers count (JSON shape in
-  the task prompt). You name the measure and write no number: the host
-  computes each KPI's usable responses, observed share or spread and achieved
-  margin or power from it, and writes them as the results block of the newest
-  Study. A goal without a measure is stated as not measured. Never write the
-  results block yourself; a copy in your chapters is removed.
+  sized, how the data measures it and which answers count (JSON shape in the
+  task prompt). You name the measure and write no number: the host computes
+  each KPI's usable responses, observed share or spread and achieved margin or
+  power from it, and writes them as the results block of the newest Study.
+  You do not have to name a column for a KPI the dataset links: each Silver
+  column records the KPIs the item inventory links it to (`item_facts.kpis` in
+  `get_dataset_schema`), and a measure that names no column is found from
+  those links (a column you do name overrides them). One linked question is
+  measured from its column. Several are measured only from a scale score the
+  Bundle's Gold layout holds over exactly those columns, which the researcher
+  makes by accepting the proposed scale score on the Gold page; you cannot
+  create it. A measure the links cannot give is stated as not measured with
+  one of three reasons, and your Study says what clears it:
+  `no_accepted_scale_score` (the linked columns share one construct and scale
+  but no score over exactly them is saved: accept the proposed score, then
+  re-run), `items_share_no_scale` (they share no construct or scale, so no
+  single score measures the KPI) and `no_linked_item` (no column of the
+  dataset names the KPI and you named none). Never write the results block
+  yourself; a copy in your chapters is removed.
 
 When the paper already holds Studies of earlier waves of the Project, the
 Study you write adds an **Across waves** passage: one sentence per sized KPI

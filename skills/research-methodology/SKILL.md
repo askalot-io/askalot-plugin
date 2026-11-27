@@ -127,9 +127,12 @@ Example: "Trust in institutions" → specify: trust in competence? integrity? re
 Choose measurement approach based on construct:
 
 **Rating scales for attitude/perception constructs:**
-- **5-7 point scales are optimal** for maximizing information and minimizing respondent burden (Krosnick & Presser research): 5 or 7 for bipolar scales, 4-5 for unipolar ones (Dillman et al. 2014)
+- **Decide what the item measures, then take its scale**: an opinion, a feeling, a behaviour, an evaluation or an intention each has its own standard scale (satisfaction, frequency, importance, likelihood, quality, agreement). The polarity, the usual lengths and the verbatim labels are in `survey-design`, `standard-scales.md`. An agree/disagree battery is not the default format (it invites acquiescence); keep it for opinions on statements
+- A bipolar scale has two opposite sides (agree and disagree); a unipolar scale runs from none to the most (frequency, importance). Satisfaction and likelihood have a standard form of each kind
+- **Length** (Krosnick & Presser; Dillman et al. 2014): 5 or 7 points for a bipolar scale, 4 or 5 for a unipolar one. A bipolar scale has a midpoint exactly when the point count is odd; a unipolar scale never has one
 - 5-point provides practical sweet spot: captures variance, reduces satisficing
-- Avoid scales with extreme point counts (>9) — increases random error without proportional information gain
+- In QML, declare the scale's structure on the item (`scale: {polarity, points, start, order}`, `qml-syntax` §4.10) and write every label, coded from the negative or low end to the positive or high end, so the quality measures, the exports and the Gold scale score read it in any language
+- Avoid scales with extreme point counts (>9) — increases random error without proportional information gain; the exception is an established end-labelled 0 to 10 item (NPS, life satisfaction)
 - Single-item measures are insufficient for complex constructs; use multi-item batteries
 
 **Open-ended for exploratory constructs:**
@@ -150,8 +153,8 @@ Choose measurement approach based on construct:
 5. **Use balanced response options**: Ensure equal scale intervals and symmetry (same number of positive and negative options)
 
 **Response option balance:**
-- Avoid: "Strongly Agree / Agree / Disagree" (asymmetric, favors agreement)
-- Use: "Strongly Agree / Agree / Neutral / Disagree / Strongly Disagree" (symmetric, balanced)
+- Avoid: "Strongly agree / Agree / Disagree" (asymmetric, favors agreement)
+- Use a standard label set (`survey-design`, `standard-scales.md`): a bipolar set has the same number of points on each side of its midpoint
 
 #### Stage 4: Test and Validate
 
@@ -193,6 +196,7 @@ Satisficers are vulnerable to:
 - Offering explicit "Don't know" options attracts satisficers with low knowledge
 - Omitting "Don't know" forces some meaningful response but increases guessing
 - Strategy: Embed knowledge probe before opinion question; treat non-responses analytically
+- On a declared scale an offered "Don't know" is an out-of-scale answer (a label coded above the scale's range): shown after the points, counted as answered, never scored
 
 **Response order effects**:
 - **Primacy bias**: First options chosen more for complex/unfamiliar items
@@ -301,9 +305,9 @@ Example: "To what extent do you agree that the government should fund education 
 - 5–7 points maximize information while keeping respondent burden low
 - Fewer than 5 points (3-point) reduces variance capture
 - More than 7 points increases non-differentiation and satisficing without gaining information
-- Odd-numbered scales (5, 7) provide neutral midpoint; even (4, 6) force choice direction
+- On a bipolar scale an odd count (5, 7) provides the neutral midpoint and an even count (4) forces a direction; a unipolar scale has no midpoint
 
-**Solution**: Default to 5-point or 7-point symmetric scales; justify deviations with cognitive burden or construct considerations.
+**Solution**: Default to a 5-point scale with the construct's own standard labels, 7 for a bipolar key measure; keep a validated instrument's own length (a 0 to 10 item declares 11 points starting at 0), and justify any other deviation with cognitive burden or construct considerations.
 
 ### 5. Inadequate Sampling Frame Coverage
 

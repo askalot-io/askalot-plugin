@@ -140,13 +140,16 @@ code block — it is outside the supported subset.
         - "Price"
         - "Quality"
         - "Service"
+      scale:
+        polarity: unipolar
+        points: 5
       input:
         control: Radio
         labels:
           1: "Poor"
-          2: "Below Average"
-          3: "Average"
-          4: "Good"
+          2: "Fair"
+          3: "Good"
+          4: "Very good"
           5: "Excellent"
 
     # Scalar selection based on matrix row sums

@@ -85,8 +85,10 @@ When you edit `sampling_strategy`, `respondent_pool_quality` or
 (a segment with no recruitment path, an unmeetable precision bar) means
 the campaign is dead-on-arrival for that goal — do not spend on it until
 the break is an explicit, accepted decision. Call the tool yourself:
-`field-supervisor` does not hold it. Treat a break on a low-confidence
-association as advisory. The chain is read-only and never auto-remediates.
+`field-supervisor` does not hold it. An answer with `coverage: "no_inventory"`
+means no questionnaire states which question collects which KPI: the
+questionnaire step was skipped, not passed, so say so when you report. The
+chain is read-only and never auto-remediates.
 
 ## RAG Grounding (mandatory)
 

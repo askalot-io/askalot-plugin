@@ -182,20 +182,20 @@ For every RQ-*, derive at least one KPI-* and record:
 - **Definition** (mandatory) — how the value is computed from responses: a
   count, a share, a mean, an index formula, a distribution, a group
   comparison. If you cannot state the computation, it is not yet a metric —
-  keep refining, or reclassify it as exploratory (`open` mode below).
-- **Collection mode** (mandatory) — how the questionnaire elicits it:
-  - `direct` — one item. Correct when the measurand is *doubly concrete* (a
-    concrete object with a concrete attribute: counts, amounts, factual
-    states, single-object evaluations). Single items match multi-item
-    predictive validity for such measurands (Bergkvist & Rossiter 2007).
-  - `derived` — several items combined by a stated derivation. Required for
-    latent constructs (attitudes, maturity, satisfaction): one item cannot
-    carry a construct, and combining items cancels random error
-    (`oppenheim1992questionnaire`). Name the sub-dimensions or intended items.
-  - `open` — an open-ended question, coded after collection. Correct when
-    the relevant factors or answer scale are unknown, when discovery is the
-    goal, or to avoid priming respondents (`stantcheva2023surveys`). Every
-    `open` KPI is a semantic-clustering candidate by construction.
+  keep refining, or state that it is exploratory: its value is the set of
+  themes coded from open answers after collection.
+  The definition says what is combined, and that decides how the KPI will be
+  asked: a count, an amount, a factual state or a single-object evaluation is
+  one value from one question; a latent construct (an attitude, maturity,
+  satisfaction) is an index over several questions, so name its sub-dimensions
+  (one question cannot carry a construct, and combining questions cancels
+  random error, `oppenheim1992questionnaire`; a doubly concrete measurand
+  needs only one, Bergkvist & Rossiter 2007); an exploratory KPI, where the
+  relevant factors or the answer scale are unknown, discovery is the goal, or
+  offered categories would prime the respondent, is coded from an open
+  question (`stantcheva2023surveys`). Do not write how many questions will
+  collect a KPI: the platform reads that from the questionnaire's item
+  inventory and shows it in the paper's instrument table.
 - **Target** (optional) — a decision rule or precision requirement, only when
   the customer actually has one. Many KPIs are estimands (distributions,
   comparisons) with no threshold — never invent a target.
@@ -205,6 +205,12 @@ every REQ-* names the KPI-* it collects data for (or the instrument function
 it serves instead — screening, demographics for weighting, routing). A KPI no
 requirement collects, or a requirement serving no KPI and no instrument
 function, is a design gap — surface it before delivering the paper.
+
+A goal token (`RQ-*`, `KPI-*`, `REQ-*`, `SC-*`) is never renumbered and never
+reused: a dropped goal retires its token, and a new goal takes the next unused
+number. Each questionnaire's item inventory names the KPI tokens its items
+collect data for, so a renumbered or reused token would point those items at
+another goal without anything saying so.
 
 ## Sizing checklist — what the sample-size plan will need
 
@@ -345,7 +351,7 @@ the class vocabulary.
 Your units are the instrument, the goals and the audience: `motivation`,
 `research_goals`, `kpis`, `target_audience`, `related_work`,
 `source_material`, `source_references`, `instrument_design`,
-`semantic_clustering_candidates`, `abstract`, `discussion`, `conclusion`.
+`abstract`, `discussion`, `conclusion`.
 Skip a unit by not editing it, and do not write into the Manager's
 (`sampling_strategy`, `respondent_pool_quality`, `data_collection_plan`,
 `data_collection`) or the Analyst's (the Studies, `coding_and_weighting`,
@@ -358,10 +364,11 @@ did not write as somebody else's current answer — the read-before-edit token i
 what keeps you from overwriting a retrospective you never read.
 
 Measurement-layer mapping: KPI-* entries persist to the `kpis` unit (alongside
-the SC-* success criteria that also live there). For each `open`-collection KPI,
-additionally add one list item to `semantic_clustering_candidates` naming the
-KPI and the planned open item — candidates are planted at design time; the
-Analyst appends clustering outcomes to the same unit after collection. After
+the SC-* success criteria that also live there). Write no list of questions
+and no question-to-KPI mapping into any unit, `instrument_design` included: the
+platform builds the instrument table from the item inventory, and
+`semantic_clustering_candidates` is the Analyst's, for clustering outcomes
+after collection. After
 your `edit_paper_unit` calls succeed, reply with a one-paragraph summary of what
 changed; do not echo unit bodies back into chat — the paper itself is the source
 of truth.
@@ -394,8 +401,7 @@ evaluate whether the collected data provides sufficient evidence to answer each 
 collected data. Every RQ-* is concluded by at least one KPI-*.]
 - [KPI-1] [Short name of the value]
   Concludes: [RQ-x]
-  Definition: [how the value is computed from responses]
-  Collection: [direct — single item | derived — multi-item, state the derivation | open — exploratory, coded post-hoc]
+  Definition: [how the value is computed from responses; for an index, the sub-dimensions it combines; for an exploratory KPI, that it is coded from open answers]
   Target: [optional decision rule or precision requirement (a margin, or the smallest difference worth detecting) — omit rather than invent]
 - [KPI-2] ...
 
@@ -487,9 +493,9 @@ edit, in-lane or not, so you *may* edit any section, but stay in your lane:
   directly: it is written when the researcher APPROVES a proposal, so a host
   write into it would invalidate every pending proposal for that unit.
   `abstract`, `discussion` and `conclusion` are shared with you (above).
-- **Shared by time**: `semantic_clustering_candidates` — the Researcher
-  registers candidates (planted `open`-collection KPIs and their items) at
-  design time; the Analyst appends clustering outcomes after collection.
+- **Analyst, after collection**: `semantic_clustering_candidates` — the
+  clustering outcomes of the open-ended items. Nothing is registered there
+  at design time.
 
 Record learnings/difficulties surfaced mid-flow **by accretion** (a
 targeted anchored edit to the relevant section). Do **not** act on them

@@ -1,13 +1,13 @@
 ---
 name: mcp-document-tools
-description: Use when you need to discover, search, or read indexed documents via MCP tools. Covers list_indexed_documents, get_document_summary, read_paper, search_document_chunks_by_keyword, get_document_chunk, get_questionnaire_inventory, and get_questionnaire_import_source.
+description: Use when you need to discover, search, or read indexed documents via MCP tools. Covers list_indexed_documents, get_document_summary, read_paper, search_document_chunks_by_keyword, get_document_chunk, get_questionnaire_build_record, get_questionnaire_import_source, and a questionnaire's item inventory (get_questionnaire_inventory, save_inventory_items).
 ---
 
 # MCP Document Tools Reference
 
 ## Scope
 
-**Covers**: Document discovery, summary reading (per-document and project-level), content search, chunk reading, and a questionnaire's inventory via Portor MCP server.
+**Covers**: Document discovery, summary reading (per-document and project-level), content search, chunk reading, and a questionnaire's build record and item inventory via Portor MCP server.
 
 **Does not cover**: Document ingestion, indexing, or conversion.
 
@@ -72,12 +72,12 @@ Reads one chunk of a document: `get_document_chunk(document_key, chunk_index)`. 
 
 **When to use**: To read detailed sections after identifying relevant chunks via search.
 
-### get_questionnaire_inventory
+### get_questionnaire_build_record
 
-Reads what a questionnaire's inventory records: `get_questionnaire_inventory(questionnaire_id)`. An inventory lists every question before any QML existed, with the routing, the checks and a scope table of what was kept and what was left out; a new questionnaire is created from one, designed or imported. The answer is a summary of it, not the whole inventory (`in` and `out` are counts of the source units kept and left out):
+Reads what a questionnaire's build record records: `get_questionnaire_build_record(questionnaire_id)`. A build record lists every question before any QML existed, with the routing, the checks and a scope table of what was kept and what was left out; a new questionnaire is created from one, designed or imported. The answer is a summary of it, not the whole build record (`in` and `out` are counts of the source units kept and left out):
 
 ```
-{"success": true, "questionnaire_id", "inventory_version_id",
+{"success": true, "questionnaire_id", "build_record_version_id",
  "describes_version_id", "describes_version_number",
  "id_map": [{"source_id", "qml_id"}],
  "invented": [{"qml_id", "predicate", "hint"}],
@@ -86,16 +86,16 @@ Reads what a questionnaire's inventory records: `get_questionnaire_inventory(que
 ```
 
 - `id_map` pairs each printed (or planned) question id with the QML item it is asked under.
-- `invented` lists the checks the source did not state as hard rules, which the inventory stage added.
+- `invented` lists the checks the source did not state as hard rules, which the build record stage added.
 - `out_units` names every source unit left out, with why.
 
-The inventory is written once, with version 1, and never changes: `describes_version_number` is 1, and later saves change only the QML. Read it as a dated record of version 1, and `get_qml_content` as the questionnaire now. Access follows the same Project checks as `read_paper`. A questionnaire created without one answers `inventory_not_found`; an unknown or unreachable id answers `not_found`.
+The build record is written once, with version 1, and never changes: `describes_version_number` is 1, and later saves change the QML and the item inventory, never the build record. Read it as a dated record of version 1, `get_qml_content` as the questionnaire now, and `get_questionnaire_inventory` as what its items are meant to measure now. Access follows the same Project checks as `read_paper`. A questionnaire created without one answers `build_record_not_found`; an unknown or unreachable id answers `not_found`.
 
 **When to use**: To explain where an imported questionnaire's items came from, which checks were invented, or what the import left out; or to compare the current QML against what version 1 was built from.
 
 ### get_questionnaire_import_source
 
-Reads the source a PDF import read: `get_questionnaire_import_source(questionnaire_id, from_page=1, max_chars=32000)`. A questionnaire imported from a PDF keeps it as one Markdown document, answers already removed, each page opened by a marker `<!-- page N printed="36" read_by="text_layer" -->` (`N` is the page of the file, `printed` the number printed on it when there is one, `read_by` `text_layer` or `vision`). The inventory's `page` fields are these `N`.
+Reads the source a PDF import read: `get_questionnaire_import_source(questionnaire_id, from_page=1, max_chars=32000)`. A questionnaire imported from a PDF keeps it as one Markdown document, answers already removed, each page opened by a marker `<!-- page N printed="36" read_by="text_layer" -->` (`N` is the page of the file, `printed` the number printed on it when there is one, `read_by` `text_layer` or `vision`). The build record's `page` fields are these `N`.
 
 ```
 {"success": true, "questionnaire_id", "front_matter", "pages",
@@ -105,9 +105,61 @@ Reads the source a PDF import read: `get_questionnaire_import_source(questionnai
 - `front_matter` names the file, its page count, the pages read by vision and the normalizer's counts (answers discarded, running headers and footers dropped, printed page numbers found).
 - `content` holds whole pages from `from_page` until about `max_chars` (1000 to 100000), never a cut page; a single page over the budget comes whole. Call again from `next_page` until it is null.
 
-The document is written once, with the questionnaire, and never changes. Access follows the inventory's checks. A questionnaire not imported from a PDF (written by hand, designed, or imported from Markdown, which is not kept) answers `import_source_not_found`; an unknown or unreachable id answers `not_found`, and a `from_page` below 1 or a `max_chars` outside its range `invalid_request`.
+The document is written once, with the questionnaire, and never changes. Access follows the build record's checks. A questionnaire not imported from a PDF (written by hand, designed, or imported from Markdown, which is not kept) answers `import_source_not_found`; an unknown or unreachable id answers `not_found`, and a `from_page` below 1 or a `max_chars` outside its range `invalid_request`.
 
-**When to use**: To check an imported question, a routing instruction or an invented check against the page the import read it from; start at the page the inventory names.
+**When to use**: To check an imported question, a routing instruction or an invented check against the page the import read it from; start at the page the build record names.
+
+### get_questionnaire_inventory
+
+Reads a questionnaire's item inventory: `get_questionnaire_inventory(questionnaire_id, include_wording=False)`. The inventory states what each item is meant to measure and nothing else: wording, labels, codes, scales and conditions stay in the QML. It is one living document per questionnaire, changed entry by entry as the questionnaire changes. It is not the build record: the record of a first build or an import (printed question numbers, invented checks, the import report) is read with `get_questionnaire_build_record`.
+
+```
+{"success": true, "questionnaire_id", "exists", "version_id", "version_number",
+ "updated_at", "qml_version_id",
+ "items": [{"item_id", "wording", "construct", "kind", "kpis", "purpose",
+            "reversed", "origin": {"mode", "instrument", "item"},
+            "rows": [{"position", "wording", <the facts that row states>}]}],
+ "warnings": [{"type", "item_id", "message"}],
+ "warnings_unavailable"}
+```
+
+- `construct` names what the item measures; `kind` is one of `opinion`, `feeling`, `behaviour`, `evaluation`, `intention`, `knowledge`, `fact`; `kpis` holds the paper's KPI tokens the item collects data for; `purpose` (`screening`, `demographics`, `routing`, `administrative`) stands in for a construct on an item that serves no KPI; `reversed` marks a reverse-worded statement; `origin` says whether the wording is `new`, or `verbatim` or `adapted` from a named instrument's item.
+- `rows` lists, for a battery asked as one item, the rows that state a fact of their own, by position counted from 1; a fact a row does not state is its item's.
+- `wording` is filled only with `include_wording=true`, read from the current QML at that moment and never stored. Every row of a battery is then listed, so a position can be matched to its statement.
+- `warnings` lists where the inventory and the current QML (`qml_version_id`) disagree: `item_without_entry` (the QML asks an item with no entry), `entry_without_item` (an entry, or a row of one, names nothing the QML asks), `intent_missing` (an entry states no kind, or neither a construct nor a purpose) and `rows_changed` (a battery's rows are not the ones its row facts were stated against). None of them blocks a save or a publish.
+- A questionnaire with no inventory is a normal answer: `exists` false, `version_id` null, no items, and one `no_inventory` notice in `warnings`.
+- `warnings` is null when the QML could not be loaded for the comparison, and `warnings_unavailable` says why; the entries are still answered.
+
+`version_id` is the `base_version_id` a save names. An unknown or unreachable id answers `not_found`.
+
+**When to use**: Before changing a questionnaire, to see what its items are meant to measure and what has to be reconciled; and to find the items behind a construct or a KPI.
+
+### save_inventory_items
+
+Changes a questionnaire's item inventory by entries: `save_inventory_items(questionnaire_id, base_version_id, qml_version_id=None, upsert=[], remove=[], rename=[])`.
+
+- `rename` moves an entry to a new item id whole, each `{"from": <item id>, "to": <item id>}`. It is applied first, then `remove`, then `upsert`.
+- `remove` lists the item ids whose entries are deleted.
+- `upsert` lists entries, each `{"item_id", "construct", "kind", "kpis", "purpose", "reversed", "origin": {"mode", "instrument", "item"}, "rows": {"<position>": {<facts>}}}`. An entry replaces that item's entry whole, so send every fact of the entry, not only the changed one.
+- `base_version_id` is the `version_id` the read or your last save answered, and `null` when the read answered `exists` false. It is required on every save.
+- `qml_version_id` is the `qml_version_id` the read answered: the QML whose rows the row positions of this save were chosen against. Pass it with every save that states `rows`. Row facts are then recorded against that version's rows, so rows reordered since are reported as `rows_changed`; the save is never refused because the QML moved on. Without it they are recorded against the QML stored at the moment of the save.
+- An upsert whose `rows` equal the stored entry's keeps them recorded against the rows they were stated for, so changing another fact of the entry never clears `rows_changed`. Add `"rows_confirmed": true` to the entry to record unchanged row facts against the rows of `qml_version_id`; it is never stored, and is refused on an entry without `rows`.
+
+The answer has the shape of the read, with the new `version_id` and the warnings after the change. A save applies entirely or not at all:
+
+- `inventory_refused`: at least one entry was refused and nothing was written; every refused entry is named with its problem. A key that belongs to the QML (wording, labels, codes, a scale, an answer type, a condition) is refused by name, as are an unknown kind or purpose and an `adapted` or `verbatim` origin that names no instrument. Fix each and save again.
+- `inventory_conflict`: the inventory is at another version than the one named, and nothing was written. Read it again and re-apply the change to what that read answers; it is never merged for you.
+- `qml_version_unknown`: `qml_version_id` is not a version of this questionnaire's QML, and nothing was written. Pass the `qml_version_id` the read answered.
+- A sealed organization, or a reach that only reads, refuses the save; retrying does not change that.
+
+An entry for an item the QML does not ask yet is saved and listed under `warnings`: a meaning is stated before its item is written. An entry that states row facts before its rows are saved reads as `rows_changed`; after the QML save, restate its row facts or save it with `rows_confirmed`, naming the `version_id` the QML save answered as `qml_version_id`.
+
+**When to use**: To state what a new or changed question measures before saving its QML, to move an entry with a re-identified item, to remove the entry of a removed item, and to reconcile the warnings a read reports.
+
+### The inventory on create, save and publish
+
+- `create_questionnaire(..., build_record=..., inventory=[...])` takes the same entries `upsert` takes and stores them as inventory version 1 together with the questionnaire. An entry that does not validate refuses the whole create with `inventory_invalid:`, naming each one. The answer carries `inventory_version_id` and `inventory_warnings`. The object a first build or an import was made from goes in `build_record`, never in `inventory`.
+- The answer of a QML save (inline or by upload) and of `publish_qml_file` carries an `inventory` block, `{"exists", "version_id", "warnings": {<type>: <count>}}`, counted against the version just saved or published; `warnings_unavailable` stands in for `warnings` when they could not be computed. A non-zero count is a prompt to read the inventory, never a failed save or publish.
 
 ## Efficiency Guidelines
 

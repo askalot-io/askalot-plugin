@@ -59,20 +59,27 @@ These metrics address the **measurement error** dimension of the Total Survey Er
 ### Straightlining Score
 - **Formula**: Proportion of respondents giving the identical answer to ALL items of a set
 - **Range**: 0 to 1
-- **Sets compared**: the sub-items of one QuestionGroup or MatrixQuestion (2 or more), and a
-  run of 3 or more standalone questions with the same control and the same labelled scale of
-  3 or more options. A Range group or matrix is not compared. A questionnaire with no such
+- **Sets compared**: the sub-items of one QuestionGroup or MatrixQuestion (2 or more); 2 or
+  more declared-scale columns that record one construct on one scale structure, wherever
+  they sit; 3 or
+  more standalone questions that declare the same rating scale (same polarity, points and
+  start) with the same labels, whatever their display order; and, for undeclared items, a run of 3 or more
+  standalone questions with the same control and the same labelled scale of 3 or more
+  options. A Range group or matrix is not compared. A questionnaire with no such
   set reads `straightlining_state: not_applicable`, which is not the same as nobody straightlining
 - **Interpretation**:
   - < 0.05: Normal — some straightlining is expected
   - 0.05–0.15: Moderate — worth investigating question design
   - > 0.15: High — likely indicates inattentive responding or poorly differentiated sub-items
-- **Note**: Only counts respondents who answered ALL sub-items (complete cases)
+- **Note**: Only counts respondents who answered ALL sub-items (complete cases); an
+  out-of-scale answer ("Don't know") is masked, so it never makes two answers identical
 
 ### Cronbach's Alpha
 - **Formula**: `α = (k/(k-1)) * (1 - Σσ²_i / σ²_total)` where k = number of sub-items
 - **Range**: Theoretically -∞ to 1, practically 0 to 1
-- **Requirements**: 3+ numeric-encoded sub-items
+- **Requirements**: 3+ numeric-encoded sub-items; out-of-scale answers are left out
+- **Reverse-worded items**: this per-battery α reads the stored codes unreversed. The Gold
+  scale score reports α with the analyst's chosen items reversed
 - **Interpretation**:
   - < 0.6: Poor internal consistency — sub-items may not measure the same construct
   - 0.6–0.7: Marginal — acceptable for exploratory research or a multidimensional construct
@@ -87,14 +94,25 @@ These metrics address the **measurement error** dimension of the Total Survey Er
 - **Interpretation**: Overall response diversity. Low values suggest many questions with dominant options or possible satisficing behavior
 
 ### Acquiescence Bias Index
-- **Formula**: Proportion of "agree" responses across all detected Likert items
-- **Detection**: Questions are identified as Likert if their labels contain both "agree" and "disagree" (case-insensitive)
+- **Formula**: positive-side answers ÷ (positive-side + negative-side answers) over every
+  item that declares a bipolar scale. The sides come from the declaration: with an odd point
+  count the codes below the midpoint are negative and those above it positive; with an even
+  count the lower half is negative and the upper half positive. The midpoint and out-of-scale
+  answers count in neither; a unipolar item contributes nothing
+- **Detection**: the declaration, in any questionnaire language; no label is read. An
+  undeclared item whose labels read agree/disagree is still matched by wording, counted over
+  all its answers, until existing questionnaires declare their scales; the figure says how
+  many items of each kind it rests on
+- **Reading it**: on a battery of statements a high value is yea-saying. A bipolar
+  satisfaction or comparison item counts too, and there a high value may be a true positive
+  result
 - **Range**: 0 to 1, where 0.5 = no bias
 - **Interpretation**:
-  - 0.4–0.6: Normal range — no systematic bias
-  - > 0.6: Moderate acquiescence — respondents tend to agree regardless of content
-  - > 0.75: Strong acquiescence — data quality concern, consider reverse-coded items
-- **When useful**: Detecting yea-saying bias in surveys with many agree/disagree scales
+  - 0.4–0.6: Balanced — no systematic bias
+  - 0.6–0.75 (or 0.25–0.4): Moderate acquiescence (or disagreement)
+  - > 0.75 (or < 0.25): Strong — data quality concern; add reverse-worded statements and
+    tick them in the Gold scale score, or ask the construct on its own scale
+- **When useful**: Detecting yea-saying bias on attitude batteries
 
 ### Overall Non-Response Rate
 - **Formula**: Mean of per-question non-response rates
@@ -128,7 +146,7 @@ For Silver (weighted) datasets:
 | Item Non-Response | > 0.10 | Review question wording, consider making optional explicit |
 | Straightlining Score | > 0.15 | Add attention checks, vary response scales, shorten battery |
 | Cronbach's Alpha | < 0.6 | Review construct validity, consider removing weak items |
-| Acquiescence Index | > 0.6 | Add reverse-coded items, vary scale direction |
+| Acquiescence Index | > 0.6 | Add reverse-worded items, prefer construct-specific scales over agree/disagree |
 
 ## Open-Ended Response Quality Metrics
 
@@ -220,7 +238,7 @@ Beyond Longest Identical String (LIS), detect other forms of non-differentiation
 ### Acquiescence Bias Refinement
 
 **Directional bias detection**:
-- For agree/disagree scales: Calculate separate agreement rates for positive- vs. negative-framed items
+- On agree/disagree items: Calculate separate agreement rates for positive- vs. negative-framed items
   - If agreement rates differ > 10pp between directions: Scale direction effect (not pure acquiescence)
   - If agreement rates similar across directions: Potential acquiescence
 
@@ -275,7 +293,7 @@ Beyond Longest Identical String (LIS), detect other forms of non-differentiation
 ### Acceptable Quality (Single Indicators in Acceptable Range)
 
 - Straightlining 0.05-0.15 with normal question design = Expected
-- Acquiescence 0.4-0.6 on agree/disagree surveys = Normal range
+- Acquiescence 0.4-0.6 on bipolar items = Normal range
 - Item non-response 5-10% = Acceptable for slightly sensitive items
 - Cronbach's alpha 0.60-0.70 = Adequate for exploratory research
 

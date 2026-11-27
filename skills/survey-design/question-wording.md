@@ -228,11 +228,16 @@ Respondents tend to agree with yes/no questions at rates 10-15% higher than logi
 - Respondents in phone interviews
 - Positive-framed items vs. negative-framed items
 
+Agree/disagree statements draw the same yea-saying: a respondent agrees
+more readily with a statement than the opinion behind it warrants.
+
 **Mitigation**:
-- Use agree/disagree scales (not yes/no)
-- Use balanced item sets (mix positive and negative frames — but NOT double negatives)
+- Ask about the construct itself with its own scale (satisfaction,
+  frequency, importance, likelihood) instead of a statement to agree with;
+  keep statements for opinions (`scale-design.md`, `standard-scales.md`)
+- Where statements are the right format, use balanced item sets (mix positive and negative frames — but NOT double negatives); the analyst ticks the reverse-worded ones in the Gold scale score
 - Validate with behavioral items or objective questions
-- Use balanced response scales with neutral midpoint
+- Use balanced response scales; on a bipolar scale an odd point count gives the neutral midpoint, an even one leaves it out
 
 ## Recall and Reference Period Guidelines
 

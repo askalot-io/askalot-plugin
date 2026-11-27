@@ -88,8 +88,18 @@ design trade-off:
 - Label it clearly: "Don't know" for knowledge gaps, "Does not apply"
   for inapplicable questions, "Prefer not to say" for sensitive topics
 - Visually separate from substantive options (spacing or divider)
-- In QML: include as the last option. For analysis, DK/NA responses
-  are typically treated as missing data, not as a substantive category
+- In QML, on a declared rating scale, give it a code above the scale's
+  range (on a scale coded 1 to 5, any code from 6 up; one code per meaning
+  through the questionnaire). That alone makes it an out-of-scale answer: it
+  is shown after the points, set apart from them, and never as a midpoint.
+  It counts as answered (completeness and nonresponse), and the quality
+  measures, reliability and scale scores treat its value as missing. On any
+  other list, include it as the last option.
+- Which wording fits which case ("Don't know", "No opinion", "Did not use",
+  "Prefer not to say"): `standard-scales.md`, section 2
+- A condition that orders an item with out-of-scale answers
+  (`q.outcome >= 4`) includes their codes, since they sit above every point:
+  name the points instead (`q.outcome in (4, 5)`)
 
 ## Open-Ended Response Guidance
 

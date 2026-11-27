@@ -61,14 +61,12 @@ reasoned:
 
 1. Call `mcp__plugin_askalot_askalot__answerability_chain` with the
    `project_id` from your delegation message and:
-   - `goals_association` — one entry per goal in the paper:
-     `{goal_id, qml_refs, data_refs, confidence, rationale, coverage}`
-     (`confidence` 0–1 or `low`/`medium`/`high`; `coverage` `full` or
-     `partial`);
-   - `instrument_items` — the items you were given, as
-     `{ref, prompt_text, kind, is_open_ended}`. A `qml_refs` entry counts only
-     when it equals one of these refs, so a goal whose refs you cannot back
-     with a given item reads as an `instrument` break;
+   - `data_links` — only when the delegation message says a KPI is answered
+     from panel or derived data: `[{goal_id: "KPI-n", ref: "<that data>"}]`.
+     Only a `KPI-*` of the paper may be named. You pass nothing about the
+     questionnaire: the tool reads which asked item collects which KPI from
+     the item inventories, a research question follows its KPIs, and success
+     criteria and requirements are not judged at that step;
    - `campaign_context` reflecting the *collected* data:
      `campaign_present: true`, `data_collected: true`, and the goal ids the
      findings you were given undermine, in `insufficient_data_goals` (too few
@@ -80,17 +78,21 @@ reasoned:
      only by uncoded open text would read `Answerable`. If the message has
      neither the selection nor "no Bundle", say so in your report.
 
-   It returns `verdicts`, one graded verdict per goal. You have no tool that
+   It returns `verdicts`, one verdict per goal (`Answerable` or `Not`), and
+   `coverage`. `coverage: "no_inventory"` means no questionnaire of the project
+   has an item inventory, so the questionnaire step was skipped: say in your
+   report that the questionnaire's coverage of the goals was not judged. Name
+   any entry of `unreadable_questionnaires` too. You have no tool that
    reads the paper or the questionnaire: work from what the delegation message
    carries, and say what was missing rather than guessing it.
 2. **Render** that verdict into your assessment — reflect each goal's
    `state`, `broken_link`, `phase`, and `newly_broken` faithfully. Add
    methodology-grounded narrative around it (sample adequacy, segment
    coverage, confounds) — that is your value-add — but the
-   answerable/partial/not call itself is the tool's.
+   answerable-or-not call itself is the tool's.
 3. When the tool returns a verdict, your rendered verdict **must not
    diverge from it**. Do not override it with an independent judgment, and
-   do not contradict its graded state: a second evaluator that can
+   do not contradict its state: a second evaluator that can
    disagree with the first is what the shared chain exists to prevent.
 
 ### Retained fallback (gated — retreat posture)
@@ -101,9 +103,9 @@ unavailable, fails (`success: false`) or answers `structural_only: true`
 alongside a tool call that returned verdicts. When you use it, say in your
 assessment that the verdict is the fallback's and why.
 
-When you do fall back, keep the same 3-state graded vocabulary the tool
-uses — `Answerable` / `Partial` / `Not` — so the rendering stays
-equivalent and never regresses to a binary verdict.
+When you do fall back, keep the two states the tool uses, `Answerable` and
+`Not`, so the rendering stays equivalent: a goal the data answers only with
+gaps is `Not`, and the gaps say what is missing.
 
 ## What You Evaluate (fallback framework)
 
@@ -111,21 +113,36 @@ equivalent and never regresses to a binary verdict.
 For each research question in the research paper:
 - **Answerable**: The data contains the variables, sample sizes, and segment
   coverage needed to answer this question with confidence
-- **Partial**: The data provides some evidence but has gaps
-  (insufficient sample in key segments, missing variables, confounding factors)
-- **Not**: Critical data is missing, sample is too small, or
-  measurement doesn't match what the question requires
+- **Not**: The data cannot carry the intended conclusion: critical data is
+  missing, the sample is too small in a key segment, a variable is missing,
+  or the measurement doesn't match what the question requires. Name the gap
+  and what evidence there is
 
 ### Key Performance Indicators (KPI-*)
 For each KPI in the paper's `kpis` section:
 - **Computed**: the value can be calculated from collected data exactly as
   its Definition states, at the precision its Target (if any) requires
-- **Degraded**: computable but the collection mode under-delivered — a
-  derived KPI missing some of its input items, or an `open` KPI whose
-  responses have not been coded/clustered yet (check
-  `semantic_clustering_candidates` for the planted items)
+- **Degraded**: computable but the collection under-delivered — a KPI
+  collected by several items missing some of them, or an `open_ended` KPI
+  whose responses have not been coded/clustered yet (read each KPI's
+  collection mode, and the open-ended questions that collect it, from the
+  collection facts the Analyst forwarded; when none were forwarded, say the
+  collection mode is unknown instead of assuming one)
 - **Not computable**: the collecting items are missing or the data cannot
   support the stated computation — the RQ-* it concludes inherits the gap
+
+A sized KPI's achieved precision is the platform's to compute, from the
+questions the dataset records as linked to it (read them from the collection
+facts the Analyst forwarded), so say which case each KPI is in rather than
+estimating a number: collected by
+one question (measured from its column); collected by several questions that
+share one construct and one rating scale (measured only once the researcher
+has accepted the proposed scale score over exactly those columns on the
+Bundle's Gold page: until then it is Degraded, and accepting the score is the
+remedy to name); collected by several questions that share no construct or
+scale (no single score measures it: Degraded, and the links need the
+Designer's attention); or named by no column of the dataset (Not computable
+from this dataset).
 
 ### Success Criteria (SC-*)
 For each success criterion:
@@ -155,7 +172,7 @@ For each RQ, consider:
 ### Per Research Question
 ```
 RQ-1: [question text]
-Status: Answerable / Partial / Not
+Status: Answerable / Not
 Broken link: [the tool's broken_link and phase, or "none"; "newly broken" when the tool says so]
 Evidence: [what data supports the answer]
 Gaps: [what's missing or weak]
@@ -169,7 +186,7 @@ Conclusion viability: [can the intended conclusion be drawn?]
 
 ## Guidelines
 
-- **Be honest about limitations** — a `Partial` RQ with caveats
+- **Be honest about limitations** — a `Not` with its gaps named
   is more useful than a false `Answerable` verdict
 - **Connect to specifics** — "RQ-2 requires comparing satisfaction across
   3 segments, but segment C has only 12 responses (need ≥30)"

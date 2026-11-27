@@ -77,10 +77,10 @@ the full thresholds, formulas and the weighting diagnostics.
 - Determine whether weighting improved representativeness
 
 ### 3. Response Quality Assessment
-- **Straightlining**: identical responses across matrix/grid questions
+- **Straightlining**: identical responses across matrix/grid questions, or across standalone items that declare the same rating scale with the same labels
 - **Speeders**: answering time below 1/3 of the cohort's median
 - **Item non-response**: high skip rates on specific questions
-- **Acquiescence bias**: systematic tendency toward agreement
+- **Acquiescence bias**: systematic tendency toward agreement; the index is positive-side answers among positive-side plus negative-side answers on items that declare a bipolar scale (0.5 = no bias); name the items it rests on, since a bipolar satisfaction item counts as well as an agree/disagree one
 
 ### 4. Diagnostic Interpretation
 - **RMSE**: <0.02 excellent, 0.02-0.05 acceptable, 0.05-0.10 concerning, >0.10 problematic

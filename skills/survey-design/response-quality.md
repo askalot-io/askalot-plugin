@@ -16,8 +16,10 @@ instead of the best answer.
 - Accepting the first plausible answer instead of the best one
 
 **Strong satisficing** (visible patterns):
-- Straightlining: same answer for every item in a grid
-- Acquiescence: agreeing with every statement regardless of content
+- Straightlining: same answer for every item in a grid, or for a run of
+  standalone items that declare the same rating scale
+- Acquiescence: agreeing with statements regardless of content (on
+  bipolar items, the positive-side answers outweigh the negative-side ones)
 - Primacy/recency: always selecting the first or last option
 - Non-differentiation: giving identical ratings across items
 - Random responding: no consistent pattern
@@ -81,7 +83,9 @@ manifests as:
 ## Straightlining
 
 Straightlining occurs when respondents select the same response
-category for every item in a grid or matrix question. It is the most
+category for every item in a grid or matrix question, or for every item
+of a run of standalone questions that declare the same rating scale
+(same polarity, points and start, with the same labels). It is the most
 common form of strong satisficing.
 
 **Risk factors for straightlining:**
@@ -95,9 +99,11 @@ common form of strong satisficing.
 - Break long item batteries into multiple smaller grids with different
   topics or formats between them
 - Mix positively and negatively worded items within a grid (forces
-  attentive reading, but use cautiously — reverse-coded items have
-  their own problems)
-- Use individual items (Radio/Slider) instead of grids when the item
+  attentive reading, but use cautiously — reverse-worded items have
+  their own problems). Code every item the same way and leave the
+  reverse keying to the analyst's Gold scale score; QML has no
+  reverse-keyed attribute
+- Use individual declared Radio items instead of grids when the item
   count is small (under 5)
 
 **Detection in data:**
@@ -114,7 +120,7 @@ response times vary by question type:
 |---------------|---------------|-------------------|
 | Yes/No (Switch) | 8-15 seconds | < 3 seconds |
 | Single-select (Radio, 4-5 options) | 12-20 seconds | < 5 seconds |
-| Rating scale (Slider) | 10-18 seconds | < 4 seconds |
+| Rating scale (declared Radio or Dropdown scale) | 10-18 seconds | < 4 seconds |
 | Numeric input (Editbox) | 12-20 seconds | < 5 seconds |
 | Matrix row | 6-12 seconds/row | < 2 seconds/row |
 | Open-ended text | 30-90 seconds | < 10 seconds |

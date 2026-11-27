@@ -97,9 +97,19 @@ denied save is their decision: do not resend it; ask what they want changed.
   - ``es``: usted
   - ``fr``: vous
   - ``de``: Sie
-  - ``hu``: Ön
+  - ``hu``: Ön; a seed's aim opens "Annak kiderítése, hogy …", never
+    "Annak feltárása"; "what should we improve" is "Mit javítsunk", never
+    "Min javítsunk"
 
   English has no register split; write plain, neutral English.
+- **Every label of a rating scale is a key**, the out-of-scale answers
+  ("Don't know", "Does not apply") included; the translation is complete
+  only with every one. Nothing supplies a scale's wording in any language:
+  you translate each label. Items that share one label set in the source
+  get the same translated set, word for word, so a battery and its sibling
+  items read as one scale. Keep each step's strength (a "Somewhat" stays
+  weaker than a "Very") and the same number of distinct labels; where the
+  target language has an established wording for the scale, use it.
 - Keep the meaning, the response scale's direction and the answer options'
   order. Do not shorten, explain or improve a question: a translation that
   says something else measures something else.

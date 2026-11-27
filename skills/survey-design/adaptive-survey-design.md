@@ -111,7 +111,7 @@ for a **target completion time** per respondent, not a fixed item count.
 
 Guidelines for estimating respondent time:
 - Simple yes/no or single-select: 10-15 seconds per item
-- Rating scales (Slider, Radio with 4-7 options): 15-20 seconds
+- Rating scales (a declared Radio or Dropdown scale, or a Slider for a numeric magnitude): 15-20 seconds
 - Numeric input: 15-20 seconds
 - Open-ended text: 30-60 seconds
 - Matrix/grid rows: 8-12 seconds per row

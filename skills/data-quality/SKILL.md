@@ -19,19 +19,25 @@ you hold the raw responses or timings.
 
 ### Straightlining Detection
 Straightlining occurs when respondents select the same option across all items in a matrix
-or grid question, indicating inattentive or satisficing behavior (Krosnick, 1991).
+or grid question, or across a run of standalone items that declare the same rating scale,
+indicating inattentive or satisficing behavior (Krosnick, 1991).
 
 **Detection methods:**
 - **Longest Identical String (LIS)**: Count the maximum consecutive identical responses in
   a matrix block. LIS ≥ 80% of items in a block = flag for review
 - **Within-scale Standard Deviation**: Calculate SD of responses within each respondent's
   matrix block. SD = 0 across ≥ 3 items = probable straightliner
-- **Cross-question consistency**: Reverse-coded items should show inverse pattern. Same
+- **Cross-question consistency**: Reverse-worded items should show the inverse pattern. Same
   direction on both regular and reverse items = acquiescence or straightlining
 
 Askalot's straightlining score uses one rule only: the share of respondents who gave
-the identical answer to every item of a set (see `response-metrics.md`). LIS and
-within-scale SD are not computed.
+the identical answer to every item of a set (see `response-metrics.md`). A set is a
+battery (the sub-items of one QuestionGroup or MatrixQuestion), the declared-scale
+columns that record one construct on one scale structure (two or more, wherever they sit
+in the questionnaire; the construct is the dataset's recorded `item_facts`), or a run of
+standalone Questions that declare the same scale (polarity, points, start) with the same
+labels.
+LIS and within-scale SD are not computed.
 
 **Prevalence thresholds:**
 - < 5% of respondents flagged: Normal, no action needed
@@ -109,11 +115,16 @@ or respondent fatigue.
 
 ### Acquiescence Bias
 Systematic tendency to agree with statements regardless of content, especially prevalent
-in agree/disagree Likert scales.
+on agree/disagree items. It is one reason the design skills keep statements for opinions
+and ask about other constructs on their own scale.
 
 **Detection:**
-- Agreement rate across all agree/disagree items (the acquiescence bias index):
-  0.4-0.6 normal, > 0.6 moderate acquiescence, > 0.75 strong
+- The acquiescence bias index: positive-side answers among positive-side plus negative-side
+  answers on items that declare a bipolar scale. The midpoint and out-of-scale answers count
+  in neither, so 0.5 means no bias. It reads codes only, so it is the same in any language.
+  On a battery of statements a high figure is yea-saying; on a bipolar satisfaction or
+  comparison item it may simply be a positive result, so check which items it rests on. Bands: 0.4-0.6 balanced, 0.25-0.4 or 0.6-0.75 moderate
+  (disagreeing or acquiescing), below 0.25 or above 0.75 strong
 - Check both positively and negatively worded items — true acquiescers agree with both
 - Compare agreement rates between educational/literacy subgroups
 
@@ -275,7 +286,7 @@ Respondents shift from "optimizing" (careful, thoughtful responses) to "satisfic
 1. **Non-differentiation pattern**: Same response across all items in matrix (straightlining)
 2. **Primacy bias**: Systematic selection of first options (especially on long lists)
 3. **Recency bias**: Systematic selection of last options
-4. **Acquiescence**: Agreeing with statements regardless of content in agree/disagree scales (see *Acquiescence Bias* for the index bands)
+4. **Acquiescence**: Agreeing with statements regardless of content on agree/disagree items (see *Acquiescence Bias* for the index and its bands)
 5. **Moderate response bias**: Always selecting middle option on 5+ point scales
 6. **Speeding** (above thresholds): Completion time too fast for content amount
 7. **Item nonresponse variance**: Skips items inconsistently rather than at logical boundaries
@@ -286,7 +297,7 @@ Respondents shift from "optimizing" (careful, thoughtful responses) to "satisfic
 - Reduce survey length to < 20 minutes (effectiveness: 25-35% reduction in satisficing)
 - Limit matrix width to ≤ 6 columns (effectiveness: 20-30% reduction)
 - Use 5-7 point scales not 10-point (effectiveness: 15-20% reduction in non-differentiation)
-- Randomize scale direction (prevent mechanical responding): effectiveness: 30-40%
+- Vary scale direction between items (prevent mechanical responding): effectiveness: 30-40%. QML shows options in the declared order for everyone, so a declared item varies only by `order: descending`; its codes keep their meaning
 - Remove "Don't know" option for knowledge questions (forces meaningful response): effectiveness: 10-15% increase in data quality for non-knowledgeable respondents
 
 **Presentation-level** (motivate respondents):
@@ -328,14 +339,15 @@ Acquiescence bias — systematic tendency to agree with statements — is a form
 - Effect size: Inflates agreement rates 10-15 percentage points above true underlying opinion
 
 **Detection**:
-- Implement reverse-coded items in same scale (e.g., both "I enjoy my job" AND "I dislike my job")
+- Implement reverse-worded items on the same declared scale (e.g., both "I enjoy my job" AND "I dislike my job"); QML carries no reverse keying: the item inventory marks the reverse-worded ones, a proposed Gold scale score arrives with them set to reverse, and the analyst can tick or untick them in the Gold scale score
 - Compare agreement rates on positively-worded vs. negatively-worded items
 - True acquiescers show > 80% agreement with BOTH positive AND negative statements on same topic
 
-**Measurement approach - agree/disagree vs. forced choice**:
+**Measurement approach - agree/disagree vs. construct-specific or forced choice**:
 - Agree/disagree scales: 10-15% higher agreement rates than forced choice on same items
 - Forced-choice scales show less acquiescence: respondents must choose between two options
 - Meta-analysis: ~50% reduction in acquiescence bias when switching from agree/disagree to forced choice format
+- A construct-specific scale (satisfaction, frequency, importance, likelihood) avoids the agree/disagree format altogether; keep statements for opinions
 
 ### Missing Data Patterns as Quality Indicator
 

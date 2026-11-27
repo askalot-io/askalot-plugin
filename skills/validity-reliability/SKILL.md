@@ -15,8 +15,9 @@ library's paper keys.
 
 What the platform computes itself is narrow: Cronbach's α per battery
 (the sub-items of one QuestionGroup or MatrixQuestion, three or more),
-on the stored answer codes, plus straightlining, speeders and item
-nonresponse. CVR, factor analysis, McDonald's ω, test-retest and κ
+on the stored answer codes with out-of-scale answers left out; the Gold
+scale score's α, computed after the analyst's chosen items are
+reversed; plus straightlining, speeders and item nonresponse. CVR, factor analysis, McDonald's ω, test-retest and κ
 are not computed; they need the exported data and the researcher's
 own analysis. Recommend them, do not report them as available.
 
@@ -92,7 +93,7 @@ want to make.
 |---|---|---|---|
 | Test-retest | Temporal stability | Pearson's $r$ | Stable constructs (personality, traits); not transitory (pain, mood) |
 | Inter-rater | Agreement between raters | Cohen's κ | Coded open-ended, observational ratings |
-| Internal consistency | Items cohere | Cronbach's α, McDonald's ω | Likert-scale multi-item constructs |
+| Internal consistency | Items cohere | Cronbach's α, McDonald's ω | Multi-item constructs on one declared rating scale |
 | Split-half | Odd/even items cohere | Spearman-Brown corrected r | Older, simpler alternative to α |
 | Parallel forms | Two equivalent forms cohere | Pearson's $r$ | Pre/post designs where retest would bias memory |
 
@@ -177,14 +178,16 @@ binary yes/no for affect-laden constructs
 (aithal2020development, p.~5).
 
 **Careless responding / straightlining.**
-- Interleave **reverse-coded items** — but only with psychometric
+- Interleave **reverse-worded items** — but only with psychometric
   equivalents; naively reversed items can damage α (aithal2020development, p.~5).
+  Reverse keying is chosen in analysis (the Gold scale score), not in QML.
 - Embed **attention checks**: rephrase-and-repeat pairs, simple
   instructional manipulation checks ("choose option 3 for this item"
   — sparingly, not overused).
 - Flag straightliners via response variance on matrix questions
-  (the platform reports a straightlining score per battery; the
-  `data-quality` skill describes it).
+  (the platform reports a straightlining score per battery and per run
+  of standalone items declaring the same scale with the same labels; the `data-quality`
+  skill describes it).
 
 **Item-level threats.**
 - **Avoid double-barreled**: "Have you experienced nausea *and*
@@ -193,8 +196,9 @@ binary yes/no for affect-laden constructs
   reading comprehension, not attitude).
 - **Precise quantifiers**: "in the last 24 hours" > "usually";
   "at least 3 times per week" > "often".
-- **Enough response anchors** (the source asks for 5+; `survey-design`
-  allows 4 on a unipolar scale) with verbal labels and equal spacing.
+- **Enough response anchors** (the source asks for 5+; 4 is allowed
+  where a bipolar scale should force a side or a unipolar one needs no
+  more) with verbal labels and equal spacing.
   Too few kills variance; too many (> 9) adds noise without signal
   (aithal2020development, p.~5).
 
@@ -246,24 +250,32 @@ Check for these when reviewing a questionnaire, and build them in when
 writing one. They decide whether the collected data can support a
 reliability or validity claim:
 
-1. **Reverse-coded items.** For any multi-item Likert construct,
-   include ≥ 1 reverse-coded item (aithal2020development, p.~5). QML
-   items have no metadata field and the platform's α is computed on the
-   stored codes without reverse-scoring, so a reverse-worded item
-   lowers the reported α. Name every reversed item in the review or the
-   paper, so that whoever reads α knows to recode first.
+1. **Reverse-worded items.** For any multi-item construct on one
+   declared rating scale, include ≥ 1 reverse-worded item
+   (aithal2020development, p.~5). Code every item the same way (the
+   lowest code = the negative or low end) and declare the scale;
+   reverse keying is not a QML attribute. The analyst ticks the
+   reverse-worded items when building the Gold scale score, which
+   reverses them (2 × start + points − 1 − code) and reports α on that
+   matrix. The per-battery α on the quality
+   page reads the stored codes unreversed, so a reverse-worded item
+   lowers it: name every reversed item in the review or the paper, so
+   whoever builds the score knows which to tick.
 2. **One battery per construct.** Put a construct's items in one
    QuestionGroup or MatrixQuestion with three or more sub-items: that
-   is the unit the platform computes α and straightlining over.
+   is the unit the platform computes α and straightlining over. Declare
+   its scale (`qml-syntax` §4.10).
 3. **Attention checks.** 1–2 embedded checks per ~30 items, and no
    more than 2–3 in the whole survey (`survey-design`,
    `response-quality.md`).
 4. **Parallel forms** for sensitive or stable constructs. Two
-   equivalent Likert batteries, balanced across respondents — enables
+   equivalent batteries on one declared scale, balanced across respondents — enables
    alternate-form reliability (aithal2020development, p.~9–10).
-5. **4–7 response anchors** with verbal labels (4–5 unipolar, 5 or 7
-   bipolar; `survey-design`, `scale-design.md`). Don't collapse scales
-   in code — the Analyst wants the raw ordinal data.
+5. **A declared scale with the construct's own standard labels**
+   (`survey-design`, `standard-scales.md`): 5 or 7 points when bipolar,
+   4 or 5 when unipolar; a bipolar scale has a midpoint exactly when
+   the count is odd. Don't collapse scales in
+   code — the Analyst wants the raw ordinal data.
 6. **Short open-ended follow-up** for headline constructs (optional
    one-sentence "anything else we missed?"). Lets the Analyst check
    discriminant validity qualitatively when closed-ended scales seem
@@ -281,6 +293,6 @@ reliability or validity claim:
 | "Is α = 0.68 good enough?" | For an exploratory / new-construct scale, yes; for confirmatory use, revise items. Also check unidimensionality via PCA before trusting α at all (aithal2020development, p.~7–8). |
 | "Why α = 0.93 on this scale is 'too high'?" | Likely item redundancy; inspect inter-item correlations, drop duplicates, aim for the 0.7–0.9 band (aithal2020development, p.~7–8). |
 | "Can we skip the pilot?" | No — the pilot is where item-level psychometric problems show up. Skipping it means discovering them in the main study when fixing is expensive (aithal2020development, p.~6). |
-| "Why do we need reverse-coded items?" | They flag careless responders and guard against acquiescence bias, but only if the reverse items have psychometrics similar to forward items (aithal2020development, p.~5). |
+| "Why do we need reverse-worded items?" | They flag careless responders and guard against acquiescence bias, but only if the reverse items have psychometrics similar to forward items (aithal2020development, p.~5). Tick them as reversed in the Gold scale score. |
 | "How many experts for content validity?" | 5–30, typically ~10. Compute Lawshe's CVR; retain items above the threshold for your panel size (taherdoost2016validity, p.~3–4). |
 | "Is a single Cronbach's α enough to call the scale 'validated'?" | No. α is reliability, not validity. You also need content validity (CVR), construct validity (factor structure), and ideally criterion validity (correlation with a benchmark) (aithal2020development, p.~9). |

@@ -20,8 +20,8 @@ judgment dimensions (D9/D10 below).
 
 ## Inputs you receive
 
-The dispatching Designer gives you the project id, the saved QML file name,
-and paper context. Gather your evidence from the platform, not from the
+The dispatching Designer gives you the project id, the questionnaire id, the
+saved QML file name, and paper context. Gather your evidence from the platform, not from the
 dispatch message:
 
 1. `mcp__plugin_askalot_askalot__qml_quality_report` — the deterministic
@@ -33,15 +33,24 @@ dispatch message:
 2. `mcp__plugin_askalot_askalot__get_qml_content` — the full QML source,
    for reading item wording, chapter structure, and offender context.
 3. `mcp__plugin_askalot_askalot__read_paper` — the research paper (KPI-*
-   definitions and collection modes, RQ-*, REQ-*).
+   definitions, RQ-*, REQ-*; its `instrument_design` unit carries
+   `kpi_collection`, how each KPI is collected).
 4. `mcp__plugin_askalot_askalot__answerability_chain` — the shared
-   goal→instrument verdict (dimension D1). Follow the `answerability-chain`
-   skill for how to gather inputs and call it. The questionnaire is saved
+   goal→instrument verdict (dimension D1). Call it with the `project_id` alone: it reads which asked item
+   collects which KPI from the questionnaire's item inventory, and you pass
+   no association. `coverage: "no_inventory"` means D1 cannot be graded;
+   report that, never a pass. The questionnaire is saved
    but not yet fielded, so omit `campaign_context` (the skill's
    pre-campaign case — no collected data). A `sampling` break can still
    come back when a goal's saved sizing target is tighter than the plan
    can deliver; report it as the sampling side's to resolve, not the
    questionnaire's.
+5. `mcp__plugin_askalot_askalot__get_questionnaire_inventory` — what each
+   item is meant to measure, as the Designer stated it: its construct, kind
+   of measure, KPIs and reverse-worded marks, per row for a battery. Call it
+   with the questionnaire id and `include_wording=true`. An item the read
+   lists under `warnings` is a finding for the Designer, who alone writes the
+   inventory.
 
 ## Questionnaire language
 
@@ -66,7 +75,7 @@ The measured numbers and grades are the tool's; your job is interpretation.
 
 | # | Dimension | Your source |
 |---|-----------|-------------|
-| D1 | KPI coverage — every KPI-* collected per its mode; no orphaned items | `answerability_chain` verdict + the paper |
+| D1 | KPI coverage — every KPI-* named by an asked item in the inventory (`answerability_chain`), no item without a KPI or purpose (`get_questionnaire_inventory` warnings) | `answerability_chain` verdict + the paper |
 | D2 | Instrument economy — dead-weight variables | tool |
 | D3 | Quality-gate density — share of NUMERIC inputs carrying a CONSTRAINING postcondition; choice items are excluded from the rate and their cross-item rules counted as `consistency_gates`, and an instrument with no numeric inputs grades `not_applicable` rather than `weak` | tool |
 | D4 | Verification coverage — predicates inside Z3's reach | tool |
@@ -76,6 +85,39 @@ The measured numbers and grades are the tool's; your job is interpretation.
 | D8 | Burden & balance — guaranteed vs worst-case burden, screening position | tool |
 | D9 | Measurement redundancy — single-item KPIs where the construct demands a multi-item scale | your judgment |
 | D10 | Methodological ordering — sensitive/demographic items late, salient opening, funnelling, topical coherence | your judgment |
+
+For rating items (part of D9), with `standard-scales.md` (`survey-design`
+skill) as the reference:
+
+- **Declared.** A Radio or Dropdown rating question declares its scale
+  (`qml-syntax` §4.10), so the quality measures, the exports and the Gold
+  scale score read it in every language.
+- **Direction of codes.** The lowest code is the negative or low end and the
+  highest point the positive or high end. A scale coded the other way loads
+  without complaint and turns every measure upside down: flag it as a defect.
+- **Out-of-scale answers.** "Don't know", "Does not apply" and the like are
+  coded above the last point, never inside the range and never as the
+  midpoint, and one meaning keeps one code through the questionnaire. Flag
+  one offered where the reference says it does not fit.
+- **The scale fits what is measured.** Name what each item measures (an
+  opinion, a feeling, a behaviour, an evaluation, an intention) and check
+  the polarity, the length and the labels against the matching entry. Flag a
+  behaviour, feeling or evaluation asked as agree/disagree statements when it
+  has its own scale, a unipolar scale with a "Neutral" middle, labels that
+  mix two ladders, and an invented ladder where a standard one exists. An
+  even bipolar scale has no midpoint by choice, not by defect.
+- Flag a Slider used for a subjective rating, and report each
+  `ordered_comparison_with_out_of_scale` warning the validation carries.
+- **Reverse-worded statements.** A reverse-worded statement is marked in
+  the item inventory, never in QML. Check the marks against the inventory
+  read (with `include_wording`, which puts each statement beside its mark):
+  flag a statement worded against the direction of its construct that its
+  entry does not mark, and a mark on a statement worded with it. Each is a
+  finding for the Designer to correct in the inventory; a correctly marked
+  statement needs no finding.
+- **What the entry says the item measures.** Each rating item's entry states
+  its kind of measure. Flag an entry whose kind the wording contradicts, and
+  judge the scale against the kind the entry states.
 
 For D9: read each KPI's Definition in the paper and count the items that
 measure it. A construct needing a reliability coefficient needs ≥3 items

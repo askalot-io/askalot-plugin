@@ -161,6 +161,12 @@ an `id` or a `data-` attribute. The answerability chain reads the paper's text,
 the customer reads the same text, and an identifier hidden in markup is invisible
 to both.
 
+A goal token (`RQ-*`, `KPI-*`, `REQ-*`, `SC-*`) is never renumbered and never
+reused: a dropped goal retires its token, and a new goal takes the next unused
+number. Each questionnaire's item inventory names the KPI tokens its items
+collect data for, so a renumbered or reused token would point those items at
+another goal without anything saying so.
+
 ## Write for a reader, not for a log
 
 A chapter is read by a person and printed to PDF. Prefer full sentences to

@@ -17,6 +17,12 @@ Use the live page when:
 - You need the export-format table (CSV, semicolon CSV, Excel, SPSS,
   Parquet, R `.rds`, JSON — what each is best for) without inlining it
   in chat
+- You need what a dataset takes from the questionnaire's item inventory:
+  each column records its question's construct, kind of measure, KPIs and
+  reverse wording at Bronze extraction, the Gold page proposes one scale
+  score per construct and scale, and the Excel schema sheet, JSON, Parquet
+  and SPSS file notes carry those facts (CSV and R do not). The three
+  layers behind this are on `guide/questionnaire-layers.md`
 
 The bundled skills cover the agent-facing angle:
 

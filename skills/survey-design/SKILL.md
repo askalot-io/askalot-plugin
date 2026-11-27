@@ -23,7 +23,8 @@ the `qml-syntax` skill.
 | `question-wording.md` | Simple language and syntax, ambiguity, specificity, leading and double-barreled questions, recall and reference periods, response-order and acquiescence effects | Writing or reviewing question stems |
 | `response-categories.md` | Exhaustive and exclusive categories, forced-choice vs. check-all, ranking, "Don't know" / "Not applicable", open-ended items | Designing answer options |
 | `response-quality.md` | Satisficing, length and fatigue thresholds, straightlining, speeding, attention checks | Keeping data quality in a long survey |
-| `scale-design.md` | Unipolar vs. bipolar, scale length, verbal labels, branching bipolar, scale by construct type | Building rating and ordinal scales |
+| `scale-design.md` | What a rating item measures, polarity, length, midpoint, declaring a scale in QML, out-of-scale answers, reverse-worded items | Building rating and ordinal scales |
+| `standard-scales.md` | Standard label sets by construct, coded low to high, with polarity and usual lengths; the "what am I measuring, which scale" guide; out-of-scale options and when each fits; validated instruments (NPS, PHQ-9, SUS) | Before writing the labels of any rating item |
 
 ## Which File for Which Problem
 
@@ -33,7 +34,7 @@ the `qml-syntax` skill.
 | No postconditions | `declarative-data-quality.md` first, then `filter-patterns.md` for the preconditions that keep a check from firing on an unasked item |
 | No `codeInit` or `codeBlock` although routing depends on several answers | `filter-patterns.md` |
 | One block holding 8 or more items | `question-ordering.md` |
-| Scale problems (length, labels, polarity) | `scale-design.md`, `question-wording.md` |
+| Scale problems (length, labels, polarity) | `scale-design.md`, `standard-scales.md`, `question-wording.md` |
 | Wording problems | `question-wording.md` |
 | Answer-option problems | `response-categories.md` |
 | A respondent's path exceeds about 20 minutes | `response-quality.md` |

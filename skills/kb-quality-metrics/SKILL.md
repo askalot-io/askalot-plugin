@@ -16,6 +16,10 @@ Use the live page when:
   non-engineering reader
 - You need the metric definitions in a form you can quote to a customer
   without paraphrasing
+- You need what counts as a straightlining set: a question group or
+  matrix, the rating questions the item inventory gives one construct on
+  one scale (two or more, wherever they sit), or three or more questions
+  sharing one scale
 
 The bundled `data-quality` skill carries the same metric set with deeper
 diagnostic interpretation (when to investigate, recommended interventions,

@@ -183,8 +183,8 @@ CATI CHECK at Q155: "If Q153 + Q154 + Q155 > Q152, display error"
   option is invalid whenever the item is reached, drop the option or check it.
 
 Checks the source only implies (a part cannot exceed its whole, an age at an
-event cannot exceed the current age) are mined in the inventory stage with six
-trigger patterns; see the inventory builder's Constraint Mining.
+event cannot exceed the current age) are mined in the build record stage with six
+trigger patterns; see the build record builder's Constraint Mining.
 
 ## Pattern 5: converging paths
 
@@ -312,7 +312,11 @@ precondition is the jump's negation.
 
 Keep DK and RF as label codes (`8: "Don't know"`, `9: "Refused"`) when they
 route or matter to analysis, and exclude them in gates that need a substantive
-answer (`q_answer.outcome in [1, 3]`).
+answer (`q_answer.outcome in [1, 3]`). A converted source keeps its printed
+codes. A rating scale whose points are printed low to high from 0 or 1 without
+a gap declares its structure, and a DK or RF printed above them (8, 9) is its
+out-of-scale answer (`qml-syntax` §4.10). One printed from the positive end,
+or with a gap, stays undeclared.
 
 ### 3. Notes that route
 

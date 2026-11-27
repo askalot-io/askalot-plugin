@@ -25,7 +25,7 @@ QML is a YAML-based markup language for creating formally verified survey questi
 
 - §1 Root structure and ids · §2 Blocks, block guards · §2b Block kinds (`count`-capped Group, Roster)
 - §3 Item kinds (Comment, Question, QuestionGroup, MatrixQuestion, external items)
-- §4 Input controls (Switch, Radio, Checkbox, Dropdown, Editbox, Slider, Range, Textarea)
+- §4 Input controls (Switch, Radio, Checkbox, Dropdown, Editbox, Slider, Range, Textarea); §4.10 rating scales (`scale`)
 - §5 Preconditions and postconditions, `None` rules
 - §6 codeInit, codeBlocks, the verified Python subset, variable discipline
 - §7 Patterns · §8 Pitfalls · §9 Conditional messages, branching, QuestionGroup aggregation · §10 Pre-validation checks · complete example
@@ -283,20 +283,26 @@ For multiple questions sharing the same response format. The outcome is a list o
 ```yaml
 - id: q_satisfaction_aspects
   kind: QuestionGroup
-  title: "Rate your satisfaction with:"
+  title: "How satisfied are you with each of the following?"
   questions:
     - "Customer service"
     - "Product quality"
     - "Delivery speed"
+  scale:
+    polarity: bipolar
+    points: 5
   input:
     control: Radio
     labels:
-      1: "Very Dissatisfied"
-      2: "Dissatisfied"
-      3: "Neutral"
-      4: "Satisfied"
-      5: "Very Satisfied"
+      1: "Very dissatisfied"
+      2: "Somewhat dissatisfied"
+      3: "Neither satisfied nor dissatisfied"
+      4: "Somewhat satisfied"
+      5: "Very satisfied"
 ```
+
+A rating battery declares its scale once (§4.10); the declaration and the
+labels apply to every statement.
 
 #### 3.4 MatrixQuestion (Grid of Responses)
 For questions with row/column structure. The outcome is a table of integers (a table of `[low, high]` pairs for a Range control).
@@ -350,7 +356,7 @@ which the validator reports as errors (§6.7).
 Every Question, QuestionGroup, and MatrixQuestion needs an `input` block; a Comment takes none. The properties depend on the control type, and the loader refuses a key the control does not declare:
 
 - **Range-based controls** (Editbox, Slider, Range): require `min` and `max`. An Editbox / Slider answer outside them, or with a decimal part, is refused at submit; `min`, `max` and a Slider's `step` are integers and an Editbox takes no `step`, so scale a decimal quantity (cents, not euros)
-- **Label-based controls** (Radio, Dropdown, Checkbox): require `labels` mapping integer keys to display text
+- **Label-based controls** (Radio, Dropdown, Checkbox): require `labels` mapping integer keys to display text. A Radio or Dropdown that is a rating scale also declares its structure with `scale` (§4.10)
 - **Switch**: takes `on` and `off` display text. The schema does not require them, but always write both (§4.1)
 
 **`default` is a hint, never an answer.** The renderer shows it — a marked
@@ -504,7 +510,8 @@ input:
 |---|---|---|
 | Yes/No binary choice | Switch | `on`/`off` labels |
 | Precise number (age, children count) | Editbox | `min`/`max` range |
-| Approximate/subjective scale (satisfaction, mood) | Slider | `min`/`max`/`step` range |
+| Subjective rating (satisfaction, agreement, frequency, importance, likelihood, quality) | Radio or Dropdown with a declared `scale` (§4.10) | `scale: {polarity, points}` and one label per point |
+| Magnitude on a numeric continuum (0-100 rating, a thermometer) | Slider | `min`/`max`/`step` range |
 | Numeric interval (salary range, price range) | Range | `min`/`max`/`step` range |
 | Multiple selection (hobbies, symptoms) | Checkbox | `labels` (power-of-2 keys) |
 | Single selection, few options (2-5 items) | Radio | `labels` |
@@ -514,6 +521,168 @@ input:
 **Special case — MatrixQuestion cells:**
 - 2-3 options per cell: use **Radio** (fits in the grid)
 - 4+ options per cell: use **Dropdown** (prevents horizontal overflow)
+
+#### 4.10 Rating Scales (`scale`, schema 2.9.0)
+
+A Radio or Dropdown **Question, QuestionGroup or MatrixQuestion** whose options
+are a rating scale declares the scale's structure with one `scale` key on the
+Item, beside `input`. No other kind or control can. In a QuestionGroup or
+MatrixQuestion it applies to every statement or cell. Write
+`qmlVersion: "2.9.0"` in a file that declares one.
+
+```yaml
+scale:
+  polarity: bipolar    # required: bipolar or unipolar
+  points: 5            # required: a whole number from 2 to 101
+  start: 1             # optional: 0 or 1; the default is 1
+  order: descending    # optional: show the highest code first
+```
+
+The declaration states structure and nothing else. **You write every label**
+in `input.labels`, one per point, and the engine never reads what a label
+says. What the item measures, which polarity and length fit it, and the
+standard wording are in the `survey-design` skill, `standard-scales.md`: read
+it before you write the labels.
+
+**Codes.** The points are coded `start` to `start + points - 1`, from the
+negative or low end to the positive or high end: "Strongly disagree" = 1 and
+"Strongly agree" = 5; "Never" = 1 and "Always" = 5. Nothing checks the
+direction, so it is yours to get right: every quality measure and scale score
+assumes it. Never code the positive end 1.
+
+**Polarity.** A bipolar scale has two opposite sides. With an odd `points` its
+middle code is the midpoint, the codes below it are the negative side and the
+codes above it the positive side; with an even `points` the lower half is
+negative, the upper half positive, and there is no midpoint. A unipolar scale
+runs from none to the most and has no midpoint and no sides.
+
+A bipolar five-point item:
+
+```yaml
+- id: q_remote_work
+  kind: Question
+  title: "Working from home makes me more productive."
+  scale:
+    polarity: bipolar
+    points: 5
+  input:
+    control: Radio
+    labels:
+      1: "Strongly disagree"
+      2: "Disagree"
+      3: "Neither agree nor disagree"
+      4: "Agree"
+      5: "Strongly agree"
+```
+
+**A 0 to 10 item** has 11 points and starts at 0. Every point needs a label,
+so write the number on the points between and the anchor with the number on
+the two ends:
+
+```yaml
+- id: q_recommend
+  kind: Question
+  title: "How likely are you to recommend us to a friend or colleague?"
+  scale:
+    polarity: unipolar
+    points: 11
+    start: 0
+  input:
+    control: Radio
+    labels:
+      0: "0 - Not at all likely"
+      1: "1"
+      2: "2"
+      3: "3"
+      4: "4"
+      5: "5"
+      6: "6"
+      7: "7"
+      8: "8"
+      9: "9"
+      10: "10 - Extremely likely"
+```
+
+**Out-of-scale answers.** A label whose code is above the scale's range
+("Don't know", "Does not apply", "Prefer not to say") is an out-of-scale
+answer. Nothing else declares it: you pick the code and the wording, and use
+the same code for the same meaning through the questionnaire. It is shown
+after the points, set apart from them, whatever the order. It counts as
+answered (completeness, nonresponse), and it is missing in every quality
+measure, reliability figure, scale score and statistical export.
+
+```yaml
+- id: q_support
+  kind: Question
+  title: "How satisfied are you with our customer support?"
+  scale:
+    polarity: bipolar
+    points: 5
+  input:
+    control: Radio
+    labels:
+      1: "Very dissatisfied"
+      2: "Somewhat dissatisfied"
+      3: "Neither satisfied nor dissatisfied"
+      4: "Somewhat satisfied"
+      5: "Very satisfied"
+      8: "Did not use"
+```
+
+**Display order.** `order: descending` shows the highest code first. The codes
+do not change: the respondent sees "Always" first and choosing it still
+stores 5. Conditions and codeBlocks read the codes, never the position.
+
+```yaml
+- id: q_seatbelt
+  kind: Question
+  title: "How often do you wear a seat belt when you drive?"
+  scale:
+    polarity: unipolar
+    points: 5
+    order: descending
+  input:
+    control: Radio
+    labels:
+      1: "Never"
+      2: "Rarely"
+      3: "Sometimes"
+      4: "Often"
+      5: "Always"
+```
+
+**What the loader refuses**, naming the item and the codes:
+
+- a point in the range with no label (labels 1 to 4 on a five-point scale)
+- a label whose code is below `start` (a label at 0 on a scale starting at 1)
+- a label key that is not a whole number
+- `points` below 2 or above 101 (a 0 to 100 scale is the widest)
+- a `default` that is not one of the points (an out-of-scale code is never a default)
+- a `scale` on any control other than Radio or Dropdown
+- any key under `scale` other than `polarity`, `points`, `start` and `order`
+
+**Ordering an item that has out-of-scale answers.** Their codes sit above
+every point, so `q_support.outcome >= 4` also admits "Did not use" (8) and
+draws an `ordered_comparison_with_out_of_scale` warning (never blocking).
+Name the points you mean:
+
+```yaml
+precondition:
+  - predicate: q_support.outcome in (4, 5)
+```
+
+A bounded form that leaves them out (`q_support.outcome >= 4 and
+q_support.outcome <= 5`, or `4 <= q_support.outcome <= 5`) means the same and
+draws no warning. Equality (`q_support.outcome == 4`) never warns.
+
+**Translations.** Every label of a declared scale, out-of-scale answers
+included, is a translation key like any other label.
+
+**Not in QML.** A Slider or Range never declares a scale. QML states no
+construct and no reverse keying: which items form a construct and which are
+reverse-worded are analysis choices. The analyst builds a Gold scale score
+from items that declare the same polarity, points and start, and ticks the
+reverse-worded ones there. Code every item of a battery the same way.
 
 ### 5. Conditional Logic
 
@@ -1198,7 +1367,8 @@ blocks:
 
 #### Missing Value Definitions
 An Editbox, Slider or Range without `min`/`max`, or a Radio, Dropdown or Checkbox
-without `labels`, does not load (§4).
+without `labels`, does not load (§4). A declared `scale` does not replace the
+labels (§4.10).
 
 ### 9. Advanced Techniques
 
@@ -1272,13 +1442,16 @@ reads the answers runs at runtime, but the variable it computes is not proven
         service_satisfaction = "good"
     else:
         service_satisfaction = "needs_improvement"
+  scale:
+    polarity: unipolar
+    points: 5
   input:
     control: Radio
     labels:
       1: "Poor"
       2: "Fair"
       3: "Good"
-      4: "Very Good"
+      4: "Very good"
       5: "Excellent"
 ```
 
@@ -1427,7 +1600,7 @@ questionnaire:
 
 When creating QML questionnaires, think declaratively:
 1. **Declare constraints, not flow** - Preconditions and postconditions define the logic; the Z3 solver verifies consistency
-2. **Always define valid values** - `min`/`max` for range-based controls, `labels` for selection controls
+2. **Always define valid values** - `min`/`max` for range-based controls, `labels` for selection controls, plus a declared `scale` on a rating question (§4.10)
 3. **Use preconditions** - Define when a question applies, not how to navigate to it
 4. **Use postconditions for consistency, routing for eligibility** - A postcondition relates answers; one that admits a single answer ends the interview and hides the answer you wanted to count
 5. **Choose the right control** - Match the UI to the data type (see Section 4.9)
